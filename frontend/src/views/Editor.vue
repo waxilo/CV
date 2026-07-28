@@ -51,7 +51,9 @@ async function handleSave() {
 }
 
 function handlePrint() {
-  window.print();
+  if (!resumeStore.currentId) return;
+  const url = router.resolve({ name: 'PrintResume', params: { resumeId: resumeStore.currentId } }).href;
+  window.open(url, '_blank');
 }
 
 function goBack() {

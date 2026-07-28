@@ -4,22 +4,44 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useUserStore } from '/@/stores/user';
 import { useResumeStore } from '/@/stores/resume';
+import { useTemplateStore } from '/@/stores/template';
+import type { ITemplate } from '/@/types/template';
 
 const router = useRouter();
 const userStore = useUserStore();
 const resumeStore = useResumeStore();
+const templateStore = useTemplateStore();
 const isCreating = ref(false);
+const showCreateDialog = ref(false);
+const createTitle = ref('我的简历');
+const selectedTemplateId = ref('modern');
 
-onMounted(() => {
-  resumeStore.fetchList();
+onMounted(async () => {
+  await Promise.all([resumeStore.fetchList(), templateStore.fetchList()]);
+  if (templateStore.list.length) {
+    selectedTemplateId.value = templateStore.list[0].template_id;
+  }
 });
 
+function openCreateDialog() {
+  createTitle.value = '我的简历';
+  if (templateStore.list.length) {
+    selectedTemplateId.value = templateStore.list[0].template_id;
+  }
+  showCreateDialog.value = true;
+}
+
 async function handleCreate() {
+  if (!selectedTemplateId.value) {
+    ElMessage.warning('请选择模板');
+    return;
+  }
   isCreating.value = true;
   try {
-    const id = await resumeStore.createResume('我的简历', 'modern');
+    const id = await resumeStore.createResume(createTitle.value.trim() || '我的简历', selectedTemplateId.value);
     if (id) {
       ElMessage.success('创建成功');
+      showCreateDialog.value = false;
       router.push(`/editor/${id}`);
     }
   } finally {
@@ -53,6 +75,14 @@ function formatDate(value: string) {
     return value;
   }
 }
+
+function templateName(id: string) {
+  return templateStore.getById(id)?.name || id;
+}
+
+function selectTpl(tpl: ITemplate) {
+  selectedTemplateId.value = tpl.template_id;
+}
 </script>
 
 <template>
@@ -63,6 +93,7 @@ function formatDate(value: string) {
         <strong>CV Builder</strong>
       </div>
       <div class="actions">
+        <el-button text @click="router.push('/templates')">模板中心</el-button>
         <span class="user">{{ userStore.displayName }}</span>
         <el-button text @click="handleLogout">退出</el-button>
       </div>
@@ -72,18 +103,21 @@ function formatDate(value: string) {
       <div class="section-head">
         <div>
           <h1>我的简历</h1>
-          <p>创建、编辑、切换模板，支持模块拖拽排序</p>
+          <p>创建、编辑、切换模板，支持模块拖拽排序与可视化模板设计</p>
         </div>
-        <el-button type="primary" :loading="isCreating" @click="handleCreate">
-          <el-icon><Plus /></el-icon>
-          新建简历
-        </el-button>
+        <div class="head-actions">
+          <el-button @click="router.push('/templates')">浏览模板</el-button>
+          <el-button type="primary" :loading="isCreating" @click="openCreateDialog">
+            <el-icon><Plus /></el-icon>
+            新建简历
+          </el-button>
+        </div>
       </div>
 
       <div v-loading="resumeStore.isLoading" class="grid">
-        <button class="card create" type="button" @click="handleCreate">
+        <button class="card create" type="button" @click="openCreateDialog">
           <el-icon :size="28"><Plus /></el-icon>
-          <span>新建空白简历</span>
+          <span>新建简历</span>
         </button>
 
         <article
@@ -94,7 +128,7 @@ function formatDate(value: string) {
         >
           <div class="card-top">
             <h3>{{ item.title }}</h3>
-            <el-tag size="small" effect="plain">{{ item.template_id }}</el-tag>
+            <el-tag size="small" effect="plain">{{ templateName(item.template_id) }}</el-tag>
           </div>
           <p class="meta">更新于 {{ formatDate(item.updated_at) }}</p>
           <div class="card-actions" @click.stop>
@@ -113,6 +147,36 @@ function formatDate(value: string) {
         </article>
       </div>
     </main>
+
+    <el-dialog v-model="showCreateDialog" title="新建简历" width="560px">
+      <el-form label-position="top">
+        <el-form-item label="简历标题">
+          <el-input v-model="createTitle" placeholder="我的简历" />
+        </el-form-item>
+        <el-form-item label="选择模板">
+          <div class="tpl-grid">
+            <button
+              v-for="tpl in templateStore.list"
+              :key="tpl.template_id"
+              type="button"
+              class="tpl"
+              :class="{ active: selectedTemplateId === tpl.template_id }"
+              @click="selectTpl(tpl)"
+            >
+              <div class="swatch" :style="{ background: tpl.config.primaryColor }" />
+              <div>
+                <strong>{{ tpl.name }}</strong>
+                <span>{{ tpl.is_builtin ? '内置' : '自定义' }}</span>
+              </div>
+            </button>
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showCreateDialog = false">取消</el-button>
+        <el-button type="primary" :loading="isCreating" @click="handleCreate">创建并编辑</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -189,6 +253,11 @@ function formatDate(value: string) {
   }
 }
 
+.head-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -245,5 +314,46 @@ function formatDate(value: string) {
 .card-actions {
   display: flex;
   gap: 8px;
+}
+
+.tpl-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.tpl {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--cv-border);
+  border-radius: 10px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+
+  &.active {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+  }
+
+  .swatch {
+    width: 28px;
+    height: 40px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  strong {
+    display: block;
+    font-size: 13px;
+  }
+
+  span {
+    font-size: 12px;
+    color: var(--cv-muted);
+  }
 }
 </style>

@@ -15,15 +15,38 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/templates',
+    name: 'TemplateCenter',
+    component: () => import('/@/views/TemplateCenter.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/templates/new',
+    name: 'TemplateCreate',
+    component: () => import('/@/views/TemplateDesigner.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/templates/:id/edit',
+    name: 'TemplateEdit',
+    component: () => import('/@/views/TemplateDesigner.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/editor/:id',
     name: 'Editor',
     component: () => import('/@/views/Editor.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/print/:resumeId',
+    name: 'PrintResume',
+    component: () => import('/@/views/PrintResume.vue'),
+    meta: { requiresAuth: true },
+  },
 ];
 
 const router = createRouter({
-  // History 模式同时支持网页部署与 Tauri；Pages 通过 public/_redirects 做 SPA 回退
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 });

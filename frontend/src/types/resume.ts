@@ -149,22 +149,17 @@ export interface IResumeDetail extends IResumeSummary {
   data: IResumeData;
 }
 
-export interface ITemplateConfig {
-  layout: 'sidebar-left' | 'sidebar-right' | 'single-column' | 'two-column';
-  primaryColor: string;
-  fontFamily: string;
-  fontSize: number;
-  spacing: number;
-}
-
-export interface ITemplate {
-  template_id: string;
-  name: string;
-  description: string | null;
-  thumbnail_url: string | null;
-  config: ITemplateConfig;
-  is_builtin: boolean;
-}
+export type {
+  ITemplateConfig,
+  ITemplate,
+  ITemplateDocument,
+  ITemplateRow,
+  ITemplateColumn,
+  ITemplateBlock,
+  IBlockStyle,
+  TTemplateLayout,
+  TBlockType,
+} from './template';
 
 export interface IUser {
   id: string;

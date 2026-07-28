@@ -1,10 +1,11 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { eq, and, desc } from 'drizzle-orm';
-import { createDb, resumes } from '../db';
+import { eq, and, desc, or } from 'drizzle-orm';
+import { createDb, resumes, templates } from '../db';
 import { generateId } from '../utils/jwt';
 import { authMiddleware, type AuthVariables } from '../middleware/auth';
 import { createDefaultResumeData, type IResumeData } from '../types/resume';
+import { normalizeIncomingConfig } from '../template/schema';
 
 const createSchema = z.object({
   title: z.string().min(1).max(100).default('未命名简历'),
@@ -56,8 +57,38 @@ resumeRoutes.post('/create-resume', async (c) => {
   const title = parsed.data.title;
   const slug = parsed.data.slug || `resume-${id.slice(0, 8)}`;
   const templateId = parsed.data.template_id || 'modern';
+
+  const tplRows = await db
+    .select()
+    .from(templates)
+    .where(
+      and(
+        eq(templates.id, templateId),
+        eq(templates.isDeleted, false),
+        or(eq(templates.isBuiltin, true), eq(templates.userId, user.sub))
+      )
+    )
+    .limit(1);
+
+  if (!tplRows[0]) {
+    return c.json(
+      { success: false, code: 'TEMPLATE_NOT_FOUND', message: '模板不存在或无权使用' },
+      404
+    );
+  }
+
   const data = createDefaultResumeData();
   data.metadata.templateId = templateId;
+  const cfg = normalizeIncomingConfig(tplRows[0].config) as {
+    primaryColor?: string;
+    fontFamily?: string;
+    fontSize?: number;
+    spacing?: number;
+  };
+  if (cfg.primaryColor) data.metadata.theme.primaryColor = cfg.primaryColor;
+  if (cfg.fontFamily) data.metadata.theme.fontFamily = cfg.fontFamily;
+  if (cfg.fontSize) data.metadata.theme.fontSize = cfg.fontSize;
+  if (cfg.spacing) data.metadata.theme.spacing = cfg.spacing;
 
   await db.insert(resumes).values({
     id,
