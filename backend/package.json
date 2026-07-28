@@ -1,0 +1,27 @@
+{
+  "name": "cv-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply cv-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply cv-db --remote",
+    "cf-typegen": "wrangler types",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.39.3",
+    "hono": "^4.7.2",
+    "jose": "^6.0.8",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250224.0",
+    "drizzle-kit": "^0.30.4",
+    "typescript": "^5.7.3",
+    "wrangler": "^3.109.2"
+  }
+}

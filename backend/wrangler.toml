@@ -1,0 +1,18 @@
+name = "cv-api"
+main = "src/index.ts"
+compatibility_date = "2025-02-24"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+JWT_EXPIRES_IN = "7d"
+APP_NAME = "CV Builder"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cv-db"
+database_id = "c79ce7b0-b0f2-452d-8f9d-c1555876c76a"
+migrations_dir = "migrations"
+
+# 部署前请执行: npx wrangler d1 create cv-db
+# 然后将返回的 database_id 填入上方
+# 并设置密钥: npx wrangler secret put JWT_SECRET

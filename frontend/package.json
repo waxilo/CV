@@ -1,0 +1,43 @@
+{
+  "name": "cv-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "build:web": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "deploy:web": "npm run build:web && wrangler pages deploy dist --project-name=cv-web",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "@tauri-apps/api": "^2.2.0",
+    "@tauri-apps/plugin-shell": "^2.2.0",
+    "axios": "^1.7.9",
+    "element-plus": "^2.9.4",
+    "pinia": "^2.3.1",
+    "sortablejs": "^1.15.6",
+    "uuid": "^11.0.5",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0",
+    "vuedraggable": "^4.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.2.7",
+    "@types/node": "^22.13.4",
+    "@types/sortablejs": "^1.15.8",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "sass": "^1.85.0",
+    "typescript": "^5.7.3",
+    "unplugin-auto-import": "^19.1.0",
+    "unplugin-vue-components": "^28.4.0",
+    "vite": "^6.1.0",
+    "vue-tsc": "^2.2.2",
+    "wrangler": "^3.114.17"
+  }
+}
