@@ -466,7 +466,11 @@ watch(
     <!-- ============ 代码模式 ============ -->
     <div v-if="isCodeMode" class="workspace workspace--code">
       <aside class="side no-print">
-        <VariableTree :context="previewContext" @insert="insertSnippet" />
+        <VariableTree
+          :context="previewContext"
+          :variables="config.variables"
+          @insert="insertSnippet"
+        />
       </aside>
 
       <section class="editor-pane no-print">
@@ -673,7 +677,7 @@ watch(
 }
 
 .workspace--code {
-  grid-template-columns: 264px minmax(420px, 1fr) minmax(420px, 1fr);
+  grid-template-columns: 300px minmax(400px, 1fr) minmax(400px, 1fr);
 }
 
 .workspace--blocks {
@@ -773,7 +777,7 @@ watch(
 
 @media (max-width: 1440px) {
   .workspace--code {
-    grid-template-columns: 230px minmax(360px, 1fr) minmax(360px, 1fr);
+    grid-template-columns: 268px minmax(340px, 1fr) minmax(340px, 1fr);
   }
 }
 
