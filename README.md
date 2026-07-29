@@ -9,7 +9,9 @@
 ```
 CV/
 ├── backend/          # Cloudflare Workers + Hono + D1
-└── frontend/         # Vue 3 + Element Plus（Web / Tauri）
+├── frontend/         # Vue 3 + Element Plus（Web / Tauri）
+└── shared/           # 前后端共享代码
+    └── template-schema/   # 模板配置类型 / 校验 / 迁移 / 内置模板
 ```
 
 ## 功能
@@ -17,9 +19,10 @@ CV/
 - 注册 / 登录（JWT）
 - 简历 CRUD 与自动保存
 - 模块增删、显隐、拖拽排序（vuedraggable）
-- 多模板预览（modern / classic / minimal）
-- 自定义模板扩展（API + 前端注册 Vue 组件）
-- 主题色 / 字体 / 字号调整
+- 代码化 HTML 模板引擎：模板作者写 HTML + CSS，通过变量与简历 JSON 拼装
+- 模板设计器双模式：代码模式（HTML/CSS + 变量树）与区块模式（拖拽画布）
+- 模板变量声明与调参，用户的调参结果存在简历侧，内置模板可被每人各自定制
+- 隔离渲染预览（`sandbox=""` iframe + CSP，零脚本）
 - 浏览器打印导出 PDF
 - 网页部署（Cloudflare Pages）与桌面打包（Tauri）
 
@@ -85,11 +88,61 @@ npm run tauri:build                 # 使用 .env.production 中的 API
 
 统一响应：`{ success, code, message, data }`，字段 `snake_case`。
 
-## 扩展模板
+## 模板引擎
 
-1. 在 `frontend/src/templates/` 新增 Vue 组件（接收 `data: IResumeData`）
-2. 在 `ResumePreview.vue` 的 `componentMap` 注册 `templateId → 组件`
-3. 通过「扩展模板」写入后端 `template` 表，或直接使用内置 id（`modern` / `classic` / `minimal`）
+模板是**代码**，不是写死的 Vue 组件。用户填的所有信息存为一份 JSON（`resume.data`），模板通过变量与之拼装。
+
+两种引擎：
+
+| engine | 说明 |
+| --- | --- |
+| `html` | 主力形态。模板作者写完整的 HTML + CSS，拥有全部 DOM 控制权 |
+| `blocks` | v1 的行-列-区块拖拽画布，作为兼容路径保留 |
+
+模板配置结构、校验与迁移放在 `shared/template-schema/`，前后端共用同一份实现。
+
+### 写一个 HTML 模板
+
+模板不直接消费原始简历 JSON，而是消费归一化后的渲染上下文 —— 不同模块的条目被统一成 `title` / `subtitle` / `meta` / `dateRange` / `description` / `keywords` 五元组，所以一段循环就能渲染全部 11 种模块：
+
+```html
+{{#each sections}}
+  <section>
+    <h2>{{this.name}}</h2>
+    {{#each this.items}}
+      <div class="item">
+        <strong>{{this.title}}</strong>
+        <span>{{this.dateRange}}</span>
+        {{#if this.descriptionSafe}}<div>{{& this.descriptionSafe}}</div>{{/if}}
+      </div>
+    {{/each}}
+  </section>
+{{/each}}
+```
+
+CSS 会自动作用域化到 `.cv-root`，不必自己加前缀；模板声明的变量注入为 `var(--tpl-*)`：
+
+```css
+.cv { padding: var(--page-margin-top) var(--page-margin-right); }
+h2  { color: var(--tpl-primary-color); }
+```
+
+支持的语法与全部可用变量见 [模板变量契约](./docs/模板变量契约.md)，架构与安全模型见 [模板引擎 v2 设计方案](./docs/模板引擎-v2-设计方案.md)。
+
+### 新增内置模板
+
+内置模板不入库，直接在 `shared/template-schema/src/builtin/index.ts` 的 `BUILTIN_TEMPLATES` 里加一项即可 —— 它同时作为模板中心的选项、新建模板的预设起点和语法参考实现。改内置模板不需要写数据库 migration。
+
+用户自定义模板走 `template` 表（`POST /api/template-service/v1/create-template`），或在模板设计器里直接写。
+
+### 安全约束
+
+模板可能来自其他用户，因此渲染产物必须是零脚本的静态 HTML：
+
+- 预览在 `<iframe sandbox="">` 内，配合 `default-src 'none'` 的 CSP，完全不能执行脚本或发起请求
+- HTML 走白名单清洗（`script` / `iframe` / `form` / 事件属性一律剥离）
+- 禁止 `{{{ }}}`；富文本只能通过 `{{& xxxSafe}}` 输出已清洗的内容
+- CSS 拦截 `@import` / `expression()` / `javascript:`，`url()` 仅放行 `data:image` 与 `https:`
 
 ## 技术栈
 
@@ -97,4 +150,5 @@ npm run tauri:build                 # 使用 .env.production 中的 API
 |----|------|
 | 后端 | Hono、Cloudflare Workers、D1、Drizzle、jose、Zod |
 | 前端 Web | Vue 3、Vite、Pinia、Vue Router、Element Plus、Cloudflare Pages |
+| 共享 | `shared/template-schema`（纯 TS，前后端共用的模板 schema / 校验 / 迁移） |
 | 桌面 | Tauri 2 |

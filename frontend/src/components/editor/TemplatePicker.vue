@@ -15,13 +15,9 @@ onMounted(() => {
 });
 
 function selectTemplate(tpl: ITemplate) {
+  // setTemplate 会清空 templateVars，让新模板声明的变量默认值生效。
+  // 这里不再同步写 metadata.theme 的字体字号，否则会把旧模板的调参带到新模板上。
   resumeStore.setTemplate(tpl.template_id, tpl.config.primaryColor);
-  resumeStore.updateTheme({
-    primaryColor: tpl.config.primaryColor,
-    fontFamily: tpl.config.fontFamily,
-    fontSize: tpl.config.fontSize,
-    spacing: tpl.config.spacing,
-  });
   ElMessage.success(`已切换到「${tpl.name}」`);
 }
 

@@ -131,7 +131,7 @@ function asNumber(value: number | number[]): number {
           :model-value="config.fontSize"
           :min="10"
           :max="20"
-          @update:model-value="(v) => updateMeta('fontSize', asNumber(v))"
+          @update:model-value="(v: number | number[]) => updateMeta('fontSize', asNumber(v))"
         />
       </el-form-item>
       <el-form-item label="行距">
@@ -140,7 +140,7 @@ function asNumber(value: number | number[]): number {
           :min="0.8"
           :max="2"
           :step="0.05"
-          @update:model-value="(v) => updateMeta('spacing', asNumber(v))"
+          @update:model-value="(v: number | number[]) => updateMeta('spacing', asNumber(v))"
         />
       </el-form-item>
       <el-form-item label="全局自定义 CSS（无 JS）">
@@ -162,7 +162,7 @@ function asNumber(value: number | number[]): number {
             :model-value="selectedColumn.col.span"
             :min="1"
             :max="12"
-            @update:model-value="(v) => updateColumn({ span: asNumber(v) })"
+            @update:model-value="(v: number | number[]) => updateColumn({ span: asNumber(v) })"
           />
         </el-form-item>
         <el-form-item label="内边距">
@@ -199,7 +199,7 @@ function asNumber(value: number | number[]): number {
         <el-form-item label="可见">
           <el-switch
             :model-value="selectedBlock.block.visible"
-            @update:model-value="(v) => updateBlock({ visible: Boolean(v) })"
+            @update:model-value="(v: boolean | string | number) => updateBlock({ visible: Boolean(v) })"
           />
         </el-form-item>
         <el-form-item v-if="selectedBlock.block.type === 'text'" label="文本内容">
@@ -222,7 +222,10 @@ function asNumber(value: number | number[]): number {
         <el-form-item label="对齐">
           <el-radio-group
             :model-value="selectedBlock.block.style?.textAlign || 'left'"
-            @update:model-value="(v) => updateBlockStyle('textAlign', String(v || 'left'))"
+            @update:model-value="
+              (v: string | number | boolean | undefined) =>
+                updateBlockStyle('textAlign', String(v || 'left'))
+            "
           >
             <el-radio-button value="left">左</el-radio-button>
             <el-radio-button value="center">中</el-radio-button>

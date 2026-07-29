@@ -17,11 +17,18 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
+      "@cv/template-schema": ["../shared/template-schema/src/index.ts"],
       "/@/*": ["src/*"],
       "@/*": ["src/*"]
     },
     "types": ["vite/client"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "src/**/*.d.ts"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "src/**/*.d.ts",
+    "../shared/template-schema/src/**/*.ts"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

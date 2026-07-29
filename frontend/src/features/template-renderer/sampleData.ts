@@ -93,6 +93,9 @@ export function createSampleResumeData(): IResumeData {
     ],
     metadata: {
       templateId: 'preview',
+      // 空对象表示「使用模板声明的变量默认值」，
+      // 这样设计器预览展示的是模板自己的配色，不会被示例数据的 theme 覆盖
+      templateVars: {},
       theme: {
         primaryColor: '#2563eb',
         textColor: '#0f172a',
@@ -101,7 +104,7 @@ export function createSampleResumeData(): IResumeData {
         fontSize: 14,
         spacing: 1.15,
       },
-      page: { margin: 24, format: 'a4' },
+      // 不设 page：设计器预览完全跟随模板声明的纸张与页边距
     },
   };
 }

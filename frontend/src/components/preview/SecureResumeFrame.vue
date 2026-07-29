@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import type { IResumeData } from '/@/types/resume';
 import type { ITemplateConfig } from '/@/types/template';
-import { compileTemplateDocument } from '/@/features/template-renderer';
+import { renderTemplate, resultToDocument } from '/@/features/template-renderer';
 
 const props = withDefaults(
   defineProps<{
@@ -13,37 +13,55 @@ const props = withDefaults(
   { scale: 1 }
 );
 
-const iframeRef = ref<HTMLIFrameElement | null>(null);
-const srcdoc = computed(() => compileTemplateDocument(props.config, props.data));
+const emit = defineEmits<{
+  (e: 'errors', value: string[]): void;
+}>();
 
-watch(srcdoc, () => {
-  // force reload for some browsers when only style changes
-  if (iframeRef.value) {
-    iframeRef.value.srcdoc = srcdoc.value;
-  }
-});
+const iframeRef = ref<HTMLIFrameElement | null>(null);
+
+const result = computed(() => renderTemplate(props.config, props.data));
+const srcdoc = computed(() => resultToDocument(result.value));
+
+/** 页面实际尺寸由模板的 page 配置决定，不再硬编码 A4 */
+const pageSize = computed(() => ({
+  width: `${result.value.context.page.widthMm}mm`,
+  minHeight: `${result.value.context.page.heightMm}mm`,
+}));
+
+watch(
+  srcdoc,
+  () => {
+    // 部分浏览器在仅样式变化时不会重新解析 srcdoc，这里强制赋值
+    if (iframeRef.value) iframeRef.value.srcdoc = srcdoc.value;
+  },
+  { flush: 'post' }
+);
+
+watch(
+  () => result.value.errors,
+  (errors) => emit('errors', errors),
+  { immediate: true, deep: true }
+);
 </script>
 
 <template>
-  <div class="secure-preview" :style="{ transform: `scale(${scale})`, transformOrigin: 'top center' }">
+  <div
+    class="secure-preview"
+    :style="{ width: pageSize.width, transform: `scale(${scale})`, transformOrigin: 'top center' }"
+  >
     <iframe
       ref="iframeRef"
       class="frame"
       title="resume-preview"
       sandbox=""
+      :style="{ width: pageSize.width, minHeight: pageSize.minHeight }"
       :srcdoc="srcdoc"
     />
   </div>
 </template>
 
 <style scoped lang="scss">
-.secure-preview {
-  width: 210mm;
-}
-
 .frame {
-  width: 210mm;
-  min-height: 297mm;
   border: none;
   background: #fff;
   box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
@@ -53,11 +71,12 @@ watch(srcdoc, () => {
 @media print {
   .secure-preview {
     transform: none !important;
+    width: 100% !important;
   }
   .frame {
     box-shadow: none;
-    width: 100%;
-    min-height: auto;
+    width: 100% !important;
+    min-height: auto !important;
   }
 }
 </style>

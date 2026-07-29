@@ -125,10 +125,23 @@ export interface IResumeTheme {
 
 export interface IResumeMetadata {
   templateId: string;
+  /**
+   * 用户对模板 variables 的覆写值，key 与 ITemplateVariable.key 对应。
+   *
+   * 属于用户数据而不是模板数据：内置模板只读、模板可被多人共用，
+   * 所以调色调字号的结果必须存在简历侧。
+   * 取值优先级：variables[].default → metadata.theme（仅当本字段缺失）→ 本字段
+   */
+  templateVars?: Record<string, string | number | boolean>;
   theme: IResumeTheme;
-  page: {
-    margin: number;
-    format: 'a4' | 'letter';
+  /**
+   * 用户对页面设置的覆写。整体与各字段都可缺省，缺省表示跟随模板的 page 配置 ——
+   * 否则模板声明的纸张与页边距永远不会生效。
+   */
+  page?: {
+    /** 毫米，四向统一 */
+    margin?: number;
+    format?: 'a4' | 'letter';
   };
 }
 
@@ -202,10 +215,10 @@ export function createDefaultResumeData(): IResumeData {
         fontSize: 14,
         spacing: 1.15,
       },
-      page: {
-        margin: 24,
-        format: 'a4',
-      },
+      // 新简历不预设页边距与模板变量：让模板自己声明的默认值生效。
+      // templateVars 为空对象（而不是缺失）表示这份简历已进入 v2 变量体系。
+      templateVars: {},
+      // 不预设 page：纸张与页边距跟随模板声明，用户改动时才写入覆写值
     },
   };
 }

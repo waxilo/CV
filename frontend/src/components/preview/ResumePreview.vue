@@ -2,12 +2,10 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import type { IResumeData } from '/@/types/resume';
 import type { ITemplateConfig } from '/@/types/template';
-import { migrateTemplateConfig, createDefaultTemplateConfig } from '/@/features/template-renderer';
+import { normalizeTemplateConfig } from '/@/features/template-renderer';
+import { getBuiltinTemplate } from '@cv/template-schema';
 import { useTemplateStore } from '/@/stores/template';
 import SecureResumeFrame from './SecureResumeFrame.vue';
-import ModernTemplate from '/@/templates/ModernTemplate.vue';
-import ClassicTemplate from '/@/templates/ClassicTemplate.vue';
-import MinimalTemplate from '/@/templates/MinimalTemplate.vue';
 
 const props = defineProps<{
   data: IResumeData;
@@ -17,20 +15,18 @@ const props = defineProps<{
 
 const templateStore = useTemplateStore();
 const resolvedConfig = ref<ITemplateConfig | null>(null);
-const useLegacy = ref(false);
-
-const legacyMap: Record<string, unknown> = {
-  modern: ModernTemplate,
-  classic: ClassicTemplate,
-  minimal: MinimalTemplate,
-};
 
 const templateId = computed(() => props.data.metadata.templateId);
 
+/**
+ * 解析要用哪份模板配置。
+ *
+ * 顺序：显式传入 → store 列表 → 详情接口 → 同名内置模板 → 默认模板。
+ * 内置模板已经是 v2 HTML 模板，所以不再需要 v1 时代的 Vue 组件回退路径。
+ */
 async function resolveConfig() {
   if (props.config) {
-    resolvedConfig.value = migrateTemplateConfig(props.config);
-    useLegacy.value = false;
+    resolvedConfig.value = normalizeTemplateConfig(props.config);
     return;
   }
 
@@ -40,35 +36,24 @@ async function resolveConfig() {
 
   const found = templateStore.getById(templateId.value);
   if (found) {
-    resolvedConfig.value = migrateTemplateConfig(found.config);
-    useLegacy.value = false;
+    resolvedConfig.value = normalizeTemplateConfig(found.config);
     return;
   }
 
-  // 未知模板：尝试详情；失败则回退内置 Vue 组件
   try {
     const detail = await templateStore.loadDetail(templateId.value);
     if (detail) {
-      resolvedConfig.value = migrateTemplateConfig(detail.config);
-      useLegacy.value = false;
+      resolvedConfig.value = normalizeTemplateConfig(detail.config);
       return;
     }
   } catch {
-    // ignore
+    // 接口不可用时继续走本地兜底
   }
 
-  if (legacyMap[templateId.value]) {
-    useLegacy.value = true;
-    resolvedConfig.value = null;
-  } else {
-    useLegacy.value = false;
-    resolvedConfig.value = createDefaultTemplateConfig('single-column', {
-      primaryColor: props.data.metadata.theme.primaryColor,
-      fontFamily: props.data.metadata.theme.fontFamily,
-      fontSize: props.data.metadata.theme.fontSize,
-      spacing: props.data.metadata.theme.spacing,
-    });
-  }
+  const builtin = getBuiltinTemplate(templateId.value);
+  resolvedConfig.value = normalizeTemplateConfig(
+    builtin ? builtin.config : getBuiltinTemplate('minimal')?.config
+  );
 }
 
 onMounted(resolveConfig);
@@ -77,34 +62,13 @@ watch([templateId, () => props.config], resolveConfig);
 
 <template>
   <div class="resume-preview">
-    <SecureResumeFrame
-      v-if="resolvedConfig && !useLegacy"
-      :data="data"
-      :config="resolvedConfig"
-    />
-    <component
-      v-else-if="useLegacy"
-      :is="legacyMap[templateId] || ModernTemplate"
-      :data="data"
-      class="resume-sheet"
-    />
+    <SecureResumeFrame v-if="resolvedConfig" :data="data" :config="resolvedConfig" />
   </div>
 </template>
 
 <style scoped lang="scss">
-.resume-sheet {
-  width: 210mm;
-  min-height: 297mm;
-  background: #fff;
-  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
-  transform-origin: top center;
-}
-
-@media print {
-  .resume-sheet {
-    box-shadow: none;
-    width: 100%;
-    min-height: auto;
-  }
+.resume-preview {
+  display: flex;
+  justify-content: center;
 }
 </style>

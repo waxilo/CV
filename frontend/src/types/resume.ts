@@ -122,10 +122,23 @@ export interface IResumeTheme {
 
 export interface IResumeMetadata {
   templateId: string;
+  /**
+   * 用户对模板 variables 的覆写值，key 与 ITemplateVariable.key 对应。
+   *
+   * 这份数据属于用户而不是模板：内置模板只读、共享模板会被多人使用，
+   * 所以调色调字号的结果必须存在简历侧。
+   * 取值优先级：variables[].default → metadata.theme → metadata.templateVars
+   */
+  templateVars?: Record<string, string | number | boolean>;
   theme: IResumeTheme;
-  page: {
-    margin: number;
-    format: 'a4' | 'letter';
+  /**
+   * 用户对页面设置的覆写。整体与各字段都可缺省，缺省表示跟随模板的 page 配置 ——
+   * 否则模板声明的纸张与页边距永远不会生效。
+   */
+  page?: {
+    /** 毫米，四向统一 */
+    margin?: number;
+    format?: 'a4' | 'letter';
   };
 }
 

@@ -43,8 +43,15 @@ export const templates = sqliteTable('template', {
   description: text('description'),
   /** 预览图 URL */
   thumbnailUrl: text('thumbnail_url'),
-  /** 模板配置 JSON：布局、配色、字体等 */
+  /** 模板配置 JSON：engine / source / variables / page，见 shared/template-schema */
   config: text('config', { mode: 'json' }).notNull(),
+  /**
+   * 渲染引擎，从 config.engine 冗余出来。
+   * 单独成列是为了模板中心按引擎筛选，以及后续审核流程按引擎分流。
+   */
+  engine: text('engine').notNull().default('blocks'),
+  /** config 的结构版本，冗余列便于批量迁移时定位老数据 */
+  schemaVersion: integer('schema_version').notNull().default(1),
   /** 是否系统内置模板 */
   isBuiltin: integer('is_builtin', { mode: 'boolean' }).notNull().default(true),
   /** 上传者（自定义模板） */

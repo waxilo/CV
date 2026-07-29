@@ -241,18 +241,68 @@ export const useResumeStore = defineStore('resume', () => {
     }
   }
 
+  /** metadata.theme 字段 → 模板变量 key 的映射 */
+  const THEME_TO_VAR: Record<string, string> = {
+    primaryColor: 'primaryColor',
+    textColor: 'textColor',
+    fontFamily: 'fontFamily',
+    fontSize: 'fontSize',
+    spacing: 'lineHeight',
+  };
+
+  /**
+   * 切换模板。
+   *
+   * 同时把 templateVars 清空为 {}：新模板声明的变量默认值应该立刻生效，
+   * 而不是继承上一个模板的调参结果。空对象（而不是 undefined）也标记了
+   * 这份简历已进入新的变量体系，渲染时不再回退读 metadata.theme。
+   */
   function setTemplate(templateId: string, primaryColor?: string) {
     if (!data.value) return;
     data.value.metadata.templateId = templateId;
+    data.value.metadata.templateVars = {};
     if (primaryColor) {
       data.value.metadata.theme.primaryColor = primaryColor;
     }
     markDirty();
   }
 
+  /**
+   * 更新主题。
+   *
+   * 除了写 metadata.theme（保持向后兼容），还会同步写入 templateVars 的同名变量，
+   * 因为渲染层在 templateVars 存在时不再读 theme。
+   */
   function updateTheme(patch: Partial<IResumeData['metadata']['theme']>) {
     if (!data.value) return;
     data.value.metadata.theme = { ...data.value.metadata.theme, ...patch };
+
+    const vars = { ...(data.value.metadata.templateVars || {}) };
+    for (const [themeKey, value] of Object.entries(patch)) {
+      const varKey = THEME_TO_VAR[themeKey];
+      if (varKey && value !== undefined && value !== null) {
+        vars[varKey] = value as string | number | boolean;
+      }
+    }
+    data.value.metadata.templateVars = vars;
+
+    markDirty();
+  }
+
+  /** 更新单个模板变量（模板自定义参数面板用） */
+  function updateTemplateVar(key: string, value: string | number | boolean) {
+    if (!data.value) return;
+    data.value.metadata.templateVars = {
+      ...(data.value.metadata.templateVars || {}),
+      [key]: value,
+    };
+    markDirty();
+  }
+
+  /** 恢复模板变量为模板声明的默认值 */
+  function resetTemplateVars() {
+    if (!data.value) return;
+    data.value.metadata.templateVars = {};
     markDirty();
   }
 
@@ -288,6 +338,8 @@ export const useResumeStore = defineStore('resume', () => {
     updateSectionContent,
     setTemplate,
     updateTheme,
+    updateTemplateVar,
+    resetTemplateVars,
     setTitle,
   };
 });

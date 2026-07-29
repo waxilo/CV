@@ -22,6 +22,8 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
+      // 前后端共享的模板 schema（纯 TS 源码，由 vite 一起编译）
+      '@cv/template-schema': resolve(__dirname, '../shared/template-schema/src/index.ts'),
       '/@': resolve(__dirname, 'src'),
       '@': resolve(__dirname, 'src'),
     },
@@ -31,6 +33,10 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     host: host || false,
+    fs: {
+      // 允许读取 frontend 之外的 shared 目录
+      allow: [resolve(__dirname, '..')],
+    },
     hmr: host
       ? {
           protocol: 'ws',
@@ -62,7 +68,12 @@ export default defineConfig({
     emptyOutDir: true,
   },
   test: {
-    environment: 'node',
+    /*
+     * 用 jsdom 而不是 node：sanitizeHtml 在没有 DOMParser 的环境下会退化成
+     * 正则实现，而生产环境走的是 DOM 白名单遍历。用 node 环境跑安全用例，
+     * 测的就不是实际生效的那条代码路径。
+     */
+    environment: 'jsdom',
     include: ['src/**/*.{test,spec}.ts'],
   },
 });
