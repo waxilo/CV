@@ -85,7 +85,7 @@ function goDashboard() {
       <div class="section-head">
         <div>
           <h1>模板中心</h1>
-          <p>浏览内置与自定义模板，拖拽设计布局，支持安全的 HTML/CSS 扩展</p>
+          <p>浏览内置与自定义模板，用 HTML/CSS 代码定制布局</p>
         </div>
       </div>
 

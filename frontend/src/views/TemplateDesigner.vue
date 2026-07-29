@@ -1,10 +1,8 @@
 <script setup lang="ts">
 /**
- * 模板设计器
+ * 模板设计器（代码模式）
  *
- * 两种形态：
- *   - 代码模式（engine=html）：直接写 HTML + CSS，配合变量树与变量声明编辑器
- *   - 区块模式（engine=blocks）：v1 的拖拽画布，作为兼容路径保留
+ * 直接写 HTML + CSS，配合变量树与变量声明编辑器。
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
@@ -12,29 +10,22 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import {
   BUILTIN_TEMPLATES,
   getBuiltinTemplate,
-  type ITemplateBlock,
   type ITemplateConfig,
   type TPageFormat,
-  type TTemplateEngine,
   type TTemplateLayout,
 } from '/@/types/template';
 import { useTemplateStore } from '/@/stores/template';
 import {
   cloneConfig,
-  createDefaultTemplateConfig,
   normalizeTemplateConfig,
   renderTemplate,
   validateTemplateConfig,
 } from '/@/features/template-renderer';
 import { createSampleResumeData } from '/@/features/template-renderer/sampleData';
-import BlockPalette from '/@/components/template-designer/BlockPalette.vue';
-import DesignerCanvas from '/@/components/template-designer/DesignerCanvas.vue';
-import PropertyPanel from '/@/components/template-designer/PropertyPanel.vue';
 import CodeEditor from '/@/components/template-designer/CodeEditor.vue';
 import VariableTree from '/@/components/template-designer/VariableTree.vue';
 import VariableSchemaEditor from '/@/components/template-designer/VariableSchemaEditor.vue';
 import SecureResumeFrame from '/@/components/preview/SecureResumeFrame.vue';
-import { createEmptyRow } from '/@/components/template-designer/helpers';
 
 const route = useRoute();
 const router = useRouter();
@@ -43,7 +34,6 @@ const templateStore = useTemplateStore();
 const name = ref('我的模板');
 const description = ref('');
 const config = ref<ITemplateConfig>(defaultHtmlConfig());
-const selected = ref<{ rowId?: string; columnId?: string; blockId?: string }>({});
 const isDirty = ref(false);
 const templateId = ref<string | null>(null);
 const isBuiltinSource = ref(false);
@@ -75,9 +65,6 @@ const MAX_HISTORY = 50;
  * 派生状态
  * ============================================================ */
 
-const engine = computed<TTemplateEngine>(() => config.value.engine);
-const isCodeMode = computed(() => engine.value === 'html');
-
 const validation = computed(() => validateTemplateConfig(config.value));
 const preview = computed(() => renderTemplate(config.value, sampleData));
 const previewContext = computed(() => preview.value.context);
@@ -101,6 +88,27 @@ function defaultHtmlConfig(): ITemplateConfig {
   const cfg = normalizeTemplateConfig(cloneConfig(starter?.config));
   cfg.meta = { ...cfg.meta, title: '我的模板', description: '' };
   return cfg;
+}
+
+/** 区块布局 → 结构最接近的内置模板（旧 blocks 模板升级用） */
+function builtinForLayout(layout: TTemplateLayout): (typeof BUILTIN_TEMPLATES)[number] {
+  if (layout === 'sidebar-left' || layout === 'sidebar-right') {
+    return BUILTIN_TEMPLATES[0]; // modern，双栏
+  }
+  return BUILTIN_TEMPLATES[1]; // classic，单栏
+}
+
+/**
+ * 将旧 blocks 引擎配置升级为 html 代码模板。
+ * 区块画布内容无法自动转 HTML，用结构最接近的内置模板作为起点。
+ */
+function upgradeBlocksToHtml(cfg: ITemplateConfig): ITemplateConfig {
+  const starter = builtinForLayout(cfg.layout);
+  const next = cloneConfig(cfg);
+  next.engine = 'html';
+  next.source = cloneConfig(starter.config.source);
+  next.variables = cloneConfig(starter.config.variables);
+  return next;
 }
 
 function pushHistory() {
@@ -136,7 +144,7 @@ function onConfigUpdate(next: ITemplateConfig) {
 }
 
 /* ============================================================
- * 代码模式
+ * 代码编辑
  * ============================================================ */
 
 function updateSource(key: 'html' | 'css', value: string) {
@@ -184,87 +192,6 @@ function insertSnippet(snippet: string) {
 }
 
 /* ============================================================
- * 引擎切换
- * ============================================================ */
-
-/** 区块布局 → 结构最接近的内置模板 */
-function builtinForLayout(layout: TTemplateLayout): (typeof BUILTIN_TEMPLATES)[number] {
-  if (layout === 'sidebar-left' || layout === 'sidebar-right') {
-    return BUILTIN_TEMPLATES[0]; // modern，双栏
-  }
-  return BUILTIN_TEMPLATES[1]; // classic，单栏
-}
-
-async function switchEngine(next: TTemplateEngine) {
-  if (next === engine.value) return;
-
-  if (next === 'html' && !config.value.source.html?.trim()) {
-    const starter = builtinForLayout(config.value.layout);
-    try {
-      await ElMessageBox.confirm(
-        `将以内置模板「${starter.name}」的代码作为起点。区块画布的内容会保留在模板里，但不会自动转换成 HTML —— 结构需要你在代码里重写。`,
-        '切换到代码模式',
-        { type: 'warning', confirmButtonText: '继续', cancelButtonText: '取消' }
-      );
-    } catch {
-      return;
-    }
-
-    const nextConfig = cloneConfig(config.value);
-    nextConfig.engine = 'html';
-    nextConfig.source = cloneConfig(starter.config.source);
-    // 变量声明也一并带过来，否则模板 CSS 里的 var(--tpl-*) 会取不到值
-    nextConfig.variables = cloneConfig(starter.config.variables);
-    applyConfig(nextConfig);
-    activeTab.value = 'html';
-    return;
-  }
-
-  const nextConfig = cloneConfig(config.value);
-  nextConfig.engine = next;
-  applyConfig(nextConfig);
-  if (next === 'html') activeTab.value = 'html';
-}
-
-/* ============================================================
- * 区块模式
- * ============================================================ */
-
-function addBlock(block: ITemplateBlock) {
-  const next = cloneConfig(config.value);
-  let targetCol: (typeof next.document.rows)[0]['columns'][0] | null = null;
-
-  if (selected.value.columnId) {
-    for (const row of next.document.rows) {
-      const col = row.columns.find((c) => c.id === selected.value.columnId);
-      if (col) {
-        targetCol = col;
-        break;
-      }
-    }
-  }
-  if (!targetCol) {
-    if (!next.document.rows.length) {
-      next.document.rows.push(createEmptyRow([12]));
-    }
-    const lastRow = next.document.rows[next.document.rows.length - 1];
-    targetCol = lastRow.columns[lastRow.columns.length - 1];
-    selected.value = { rowId: lastRow.id, columnId: targetCol.id };
-  }
-  targetCol.blocks.push(block);
-  selected.value = { ...selected.value, blockId: block.id };
-  applyConfig(next);
-}
-
-function addRow(spans: number[]) {
-  const next = cloneConfig(config.value);
-  const row = createEmptyRow(spans);
-  next.document.rows.push(row);
-  selected.value = { rowId: row.id, columnId: row.columns[0]?.id };
-  applyConfig(next);
-}
-
-/* ============================================================
  * 加载与保存
  * ============================================================ */
 
@@ -273,22 +200,11 @@ async function load() {
   const mode = route.name;
 
   if (mode === 'TemplateCreate' || !id) {
-    const requestedEngine = route.query.engine === 'blocks' ? 'blocks' : 'html';
-    const layout = (route.query.layout as string) || 'single-column';
-
-    if (requestedEngine === 'blocks') {
-      config.value = createDefaultTemplateConfig(
-        layout === 'sidebar-left' || layout === 'sidebar-right' || layout === 'two-column'
-          ? layout
-          : 'single-column'
-      );
-    } else {
-      const preset = (route.query.preset as string) || 'minimal';
-      const builtin = getBuiltinTemplate(preset) || getBuiltinTemplate('minimal');
-      const cfg = normalizeTemplateConfig(cloneConfig(builtin?.config));
-      cfg.meta = { ...cfg.meta, title: '我的模板', description: '' };
-      config.value = cfg;
-    }
+    const preset = (route.query.preset as string) || 'minimal';
+    const builtin = getBuiltinTemplate(preset) || getBuiltinTemplate('minimal');
+    const cfg = normalizeTemplateConfig(cloneConfig(builtin?.config));
+    cfg.meta = { ...cfg.meta, title: '我的模板', description: '' };
+    config.value = cfg;
 
     name.value = '我的模板';
     description.value = '';
@@ -297,7 +213,7 @@ async function load() {
     isDirty.value = false;
     undoStack.value = [];
     redoStack.value = [];
-    activeTab.value = requestedEngine === 'blocks' ? 'vars' : 'html';
+    activeTab.value = 'html';
     return;
   }
 
@@ -310,11 +226,22 @@ async function load() {
 
   name.value = detail.name;
   description.value = detail.description || '';
-  config.value = normalizeTemplateConfig(detail.config);
-  isDirty.value = false;
+
+  let loaded = normalizeTemplateConfig(detail.config);
+  let upgradedFromBlocks = false;
+  if (loaded.engine === 'blocks') {
+    loaded = upgradeBlocksToHtml(loaded);
+    upgradedFromBlocks = true;
+  }
+  config.value = loaded;
+  isDirty.value = upgradedFromBlocks;
   undoStack.value = [];
   redoStack.value = [];
-  activeTab.value = config.value.engine === 'html' ? 'html' : 'vars';
+  activeTab.value = 'html';
+
+  if (upgradedFromBlocks) {
+    ElMessage.info('旧区块模板已转为代码模式，请检查并保存');
+  }
 
   if (detail.is_builtin) {
     // 编辑内置模板 → 自动复制为个人副本
@@ -435,17 +362,6 @@ watch(
         <el-input v-model="name" class="name" placeholder="模板名称" />
         <el-input v-model="description" class="desc" placeholder="描述（可选）" />
 
-        <el-radio-group
-          :model-value="engine"
-          size="small"
-          @update:model-value="
-            (v: string | number | boolean | undefined) => switchEngine(v as TTemplateEngine)
-          "
-        >
-          <el-radio-button value="html">代码模式</el-radio-button>
-          <el-radio-button value="blocks">区块模式</el-radio-button>
-        </el-radio-group>
-
         <el-tag v-if="isDirty" type="warning" size="small" effect="plain">未保存</el-tag>
         <el-tag v-else type="success" size="small" effect="plain">已同步</el-tag>
         <el-tag v-if="isBuiltinSource" type="info" size="small">将另存为副本</el-tag>
@@ -463,8 +379,7 @@ watch(
       <el-alert :title="firstError" type="error" :closable="false" show-icon />
     </div>
 
-    <!-- ============ 代码模式 ============ -->
-    <div v-if="isCodeMode" class="workspace workspace--code">
+    <div class="workspace">
       <aside class="side no-print">
         <VariableTree
           :context="previewContext"
@@ -590,42 +505,6 @@ watch(
         </div>
       </section>
     </div>
-
-    <!-- ============ 区块模式 ============ -->
-    <div v-else class="workspace workspace--blocks">
-      <aside class="side left-pane no-print">
-        <BlockPalette @add-block="addBlock" @add-row="addRow" />
-      </aside>
-
-      <section class="editor-pane no-print">
-        <div class="pane-title">结构画布（拖拽排序）</div>
-        <DesignerCanvas
-          :config="config"
-          :selected="selected"
-          @update:config="onConfigUpdate"
-          @select="(v) => (selected = v)"
-        />
-        <div class="pane-title property-title">属性设置</div>
-        <PropertyPanel :config="config" :selected="selected" @update:config="onConfigUpdate" />
-      </section>
-
-      <section class="preview-pane">
-        <div class="pane-title no-print">
-          <span>实时预览（隔离渲染）</span>
-          <el-slider
-            v-model="previewScale"
-            :min="0.3"
-            :max="1"
-            :step="0.02"
-            class="scale-slider"
-            size="small"
-          />
-        </div>
-        <div class="preview-wrap">
-          <SecureResumeFrame :data="sampleData" :config="config" :scale="previewScale" />
-        </div>
-      </section>
-    </div>
   </div>
 </template>
 
@@ -674,14 +553,7 @@ watch(
   flex: 1;
   min-height: 0;
   display: grid;
-}
-
-.workspace--code {
   grid-template-columns: 300px minmax(400px, 1fr) minmax(400px, 1fr);
-}
-
-.workspace--blocks {
-  grid-template-columns: 220px minmax(360px, 440px) minmax(560px, 1fr);
 }
 
 .side {
@@ -758,12 +630,6 @@ watch(
   flex-shrink: 0;
 }
 
-.property-title {
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid var(--cv-border);
-}
-
 .preview-wrap {
   display: flex;
   justify-content: center;
@@ -776,20 +642,13 @@ watch(
 }
 
 @media (max-width: 1440px) {
-  .workspace--code {
+  .workspace {
     grid-template-columns: 268px minmax(340px, 1fr) minmax(340px, 1fr);
   }
 }
 
-@media (max-width: 1280px) {
-  .workspace--blocks {
-    grid-template-columns: 200px 360px minmax(480px, 1fr);
-  }
-}
-
 @media (max-width: 1024px) {
-  .workspace--code,
-  .workspace--blocks {
+  .workspace {
     grid-template-columns: 1fr;
   }
 
