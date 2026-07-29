@@ -2,10 +2,13 @@
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { getBuiltinTemplate, type ITemplate, type ITemplateConfig } from '/@/types/template';
 import { useUserStore } from '/@/stores/user';
 import { useResumeStore } from '/@/stores/resume';
 import { useTemplateStore } from '/@/stores/template';
-import type { ITemplate } from '/@/types/template';
+import { migrateTemplateConfig } from '/@/features/template-renderer';
+import SecureResumeFrame from '/@/components/preview/SecureResumeFrame.vue';
+import type { IResumeSummary } from '/@/types/resume';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -83,6 +86,16 @@ function templateName(id: string) {
 function selectTpl(tpl: ITemplate) {
   selectedTemplateId.value = tpl.template_id;
 }
+
+/** 解析简历卡片缩略图用的模板配置 */
+function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
+  const templateId = item.template_id || item.data?.metadata?.templateId || 'minimal';
+  const found = templateStore.getById(templateId);
+  if (found) return found.config;
+
+  const builtin = getBuiltinTemplate(templateId) || getBuiltinTemplate('minimal');
+  return migrateTemplateConfig(builtin?.config);
+}
 </script>
 
 <template>
@@ -126,23 +139,33 @@ function selectTpl(tpl: ITemplate) {
           class="card resume"
           @click="openEditor(item.resume_id)"
         >
-          <div class="card-top">
-            <h3>{{ item.title }}</h3>
-            <el-tag size="small" effect="plain">{{ templateName(item.template_id) }}</el-tag>
+          <div class="thumb">
+            <SecureResumeFrame
+              v-if="item.data"
+              :data="item.data"
+              :config="resumeThumbConfig(item)"
+              :scale="0.28"
+            />
           </div>
-          <p class="meta">更新于 {{ formatDate(item.updated_at) }}</p>
-          <div class="card-actions" @click.stop>
-            <el-button size="small" type="primary" plain @click="openEditor(item.resume_id)">
-              编辑
-            </el-button>
-            <el-button
-              size="small"
-              type="danger"
-              plain
-              @click="handleDelete(item.resume_id, item.title)"
-            >
-              删除
-            </el-button>
+          <div class="body">
+            <div class="card-top">
+              <h3>{{ item.title }}</h3>
+              <el-tag size="small" effect="plain">{{ templateName(item.template_id) }}</el-tag>
+            </div>
+            <p class="meta">更新于 {{ formatDate(item.updated_at) }}</p>
+            <div class="card-actions" @click.stop>
+              <el-button size="small" type="primary" plain @click="openEditor(item.resume_id)">
+                编辑
+              </el-button>
+              <el-button
+                size="small"
+                type="danger"
+                plain
+                @click="handleDelete(item.resume_id, item.title)"
+              >
+                删除
+              </el-button>
+            </div>
           </div>
         </article>
       </div>
@@ -229,7 +252,7 @@ function selectTpl(tpl: ITemplate) {
 }
 
 .content {
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 36px 28px 64px;
 }
@@ -260,17 +283,17 @@ function selectTpl(tpl: ITemplate) {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
   min-height: 160px;
 }
 
 .card {
   background: var(--cv-surface);
   border: 1px solid var(--cv-border);
-  border-radius: var(--cv-radius);
+  border-radius: 14px;
   box-shadow: var(--cv-shadow);
-  padding: 20px;
+  overflow: hidden;
   text-align: left;
   cursor: pointer;
   transition: border-color 0.15s ease, transform 0.15s ease;
@@ -286,22 +309,26 @@ function selectTpl(tpl: ITemplate) {
     align-items: center;
     justify-content: center;
     gap: 10px;
-    min-height: 160px;
+    min-height: 320px;
+    padding: 20px;
     color: var(--cv-muted);
     border-style: dashed;
     background: rgba(255, 255, 255, 0.6);
   }
+}
 
-  h3 {
-    font-size: 16px;
-    margin-bottom: 8px;
-  }
+.thumb {
+  height: 220px;
+  overflow: hidden;
+  background: #e2e8f0;
+  display: flex;
+  justify-content: center;
+  padding-top: 12px;
+  pointer-events: none;
+}
 
-  .meta {
-    color: var(--cv-muted);
-    font-size: 12px;
-    margin-bottom: 16px;
-  }
+.body {
+  padding: 14px 16px 16px;
 }
 
 .card-top {
@@ -309,11 +336,22 @@ function selectTpl(tpl: ITemplate) {
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+
+  h3 {
+    font-size: 16px;
+  }
+}
+
+.meta {
+  color: var(--cv-muted);
+  font-size: 12px;
+  margin: 8px 0 14px;
 }
 
 .card-actions {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .tpl-grid {

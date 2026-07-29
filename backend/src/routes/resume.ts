@@ -119,6 +119,7 @@ resumeRoutes.post('/list-resumes', async (c) => {
       slug: resumes.slug,
       templateId: resumes.templateId,
       isPublic: resumes.isPublic,
+      data: resumes.data,
       updatedAt: resumes.updatedAt,
       createdAt: resumes.createdAt,
     })
@@ -136,6 +137,7 @@ resumeRoutes.post('/list-resumes', async (c) => {
       slug: r.slug,
       template_id: r.templateId,
       is_public: r.isPublic,
+      data: r.data,
       updated_at: r.updatedAt,
       created_at: r.createdAt,
     })),

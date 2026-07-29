@@ -154,13 +154,13 @@ export interface IResumeSummary {
   slug: string;
   template_id: string;
   is_public: boolean;
+  /** 列表接口也返回，用于卡片缩略图预览 */
+  data: IResumeData;
   updated_at: string;
   created_at: string;
 }
 
-export interface IResumeDetail extends IResumeSummary {
-  data: IResumeData;
-}
+export interface IResumeDetail extends IResumeSummary {}
 
 export type {
   ITemplateConfig,
