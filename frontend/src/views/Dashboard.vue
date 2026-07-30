@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getBuiltinTemplate, type ITemplate, type ITemplateConfig } from '/@/types/template';
@@ -22,11 +22,48 @@ const selectedTemplateId = ref('modern');
 const sampleResumeData = createSampleResumeData();
 const userInitial = computed(() => userStore.displayName.trim().charAt(0).toUpperCase() || 'U');
 
+/** A4 纸宽 210mm 在 96dpi 下的像素宽度，用于把整页换算成缩略图缩放比 */
+const A4_WIDTH_PX = (210 * 96) / 25.4;
+const gridRef = ref<HTMLElement | null>(null);
+const paperWidth = ref(320);
+const thumbScale = computed(() => paperWidth.value / A4_WIDTH_PX);
+let gridObserver: ResizeObserver | null = null;
+
+/**
+ * 卡片不再用固定像素裁切缩略图，而是让 A4 纸张跟随栅格列宽。
+ * 直接读计算后的 grid-template-columns，比按断点硬编码列数可靠。
+ */
+function measurePaperWidth() {
+  const el = gridRef.value;
+  if (!el) return;
+  const firstColumn = getComputedStyle(el)
+    .gridTemplateColumns.split(' ')
+    .map((value) => Number.parseFloat(value))
+    .find((value) => Number.isFinite(value) && value > 0);
+  if (firstColumn && Math.abs(firstColumn - paperWidth.value) > 0.5) {
+    paperWidth.value = firstColumn;
+  }
+}
+
 onMounted(async () => {
+  if (typeof ResizeObserver !== 'undefined') {
+    gridObserver = new ResizeObserver(() => measurePaperWidth());
+    if (gridRef.value) gridObserver.observe(gridRef.value);
+  }
+  await nextTick();
+  measurePaperWidth();
+
   await Promise.all([resumeStore.fetchList(), templateStore.fetchList()]);
   if (templateStore.list.length) {
     selectedTemplateId.value = templateStore.list[0].template_id;
   }
+  await nextTick();
+  measurePaperWidth();
+});
+
+onBeforeUnmount(() => {
+  gridObserver?.disconnect();
+  gridObserver = null;
 });
 
 function openCreateDialog() {
@@ -176,7 +213,6 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
     <main class="content">
       <section class="hero">
         <div class="hero-copy">
-          <span class="eyebrow">你的职业形象，从这里开始</span>
           <h1>打造你的专业简历</h1>
           <p>创建、编辑和管理你的职业简历，使用精美模板快速生成属于你的简历</p>
         </div>
@@ -201,55 +237,56 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
           <p>最近更新</p>
         </div>
 
-        <div v-loading="resumeStore.isLoading" class="grid">
-          <button class="card create-card" type="button" @click="openCreateDialog">
-            <span class="create-icon"><el-icon :size="26"><Plus /></el-icon></span>
-            <strong>{{ resumeStore.list.length ? '创建新简历' : '创建第一份简历' }}</strong>
-            <span>选择模板开始制作</span>
+        <div ref="gridRef" v-loading="resumeStore.isLoading" class="grid">
+          <button class="create-card" type="button" @click="openCreateDialog">
+            <span class="create-icon"><el-icon :size="22"><Plus /></el-icon></span>
+            <strong>创建新简历</strong>
+            <span class="create-hint">从模板开始制作</span>
           </button>
 
           <article
             v-for="(item, index) in resumeStore.list"
             :key="item.resume_id"
-            class="card resume-card"
+            class="resume-card"
             :style="{ '--card-index': index }"
             @click="openEditor(item.resume_id)"
           >
-            <div class="preview-stage">
-              <div class="paper-preview">
+            <div class="paper">
+              <div class="paper-inner">
                 <SecureResumeFrame
                   :data="resumePreviewData(item)"
                   :config="resumeThumbConfig(item)"
-                  :scale="0.27"
+                  :scale="thumbScale"
                 />
               </div>
+              <div class="paper-actions" @click.stop>
+                <el-button class="edit-button" size="small" @click="openEditor(item.resume_id)">
+                  编辑
+                </el-button>
+                <el-dropdown trigger="click" placement="bottom-end">
+                  <button class="more-button" type="button" aria-label="更多操作">
+                    更多
+                    <el-icon><ArrowDown /></el-icon>
+                  </button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item @click="handleDelete(item.resume_id, item.title)">
+                        <el-icon><Delete /></el-icon>
+                        删除简历
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
             </div>
-            <div class="card-body">
-              <div class="resume-info">
-                <h3>{{ item.title }}</h3>
-                <p>{{ templateName(item.template_id) }}</p>
-              </div>
-              <div class="card-footer" @click.stop>
-                <span class="updated-at">更新于 {{ formatDate(item.updated_at) }}</span>
-                <div class="card-operations">
-                  <el-button class="edit-button" size="small" @click="openEditor(item.resume_id)">
-                    编辑
-                  </el-button>
-                  <el-dropdown trigger="click" placement="bottom-end">
-                    <button class="more-button" type="button" aria-label="更多操作">
-                      <el-icon><MoreFilled /></el-icon>
-                    </button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item @click="handleDelete(item.resume_id, item.title)">
-                          <el-icon><Delete /></el-icon>
-                          删除简历
-                        </el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
-              </div>
+
+            <div class="card-meta">
+              <h3>{{ item.title }}</h3>
+              <p class="meta-line">
+                <span>{{ templateName(item.template_id) }}</span>
+                <span class="dot" aria-hidden="true">·</span>
+                <span>更新于 {{ formatDate(item.updated_at) }}</span>
+              </p>
             </div>
           </article>
         </div>
@@ -294,6 +331,9 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
 </template>
 
 <style scoped lang="scss">
+/* 纸张抬起动画统一缓动 */
+$paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
 .dashboard {
   min-height: 100%;
   background:
@@ -430,68 +470,35 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
 }
 
 .content {
-  max-width: 1320px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 40px 28px 72px;
+  padding: 44px 24px 88px;
 }
 
+/* 页头不再是带边框的大卡片，避免和简历缩略图争夺视觉重心 */
 .hero {
-  min-height: 232px;
-  padding: 40px 44px;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  border-radius: 16px;
-  background:
-    linear-gradient(118deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94)),
-    linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(99, 102, 241, 0.08));
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 36px;
-  position: relative;
-  overflow: hidden;
-
-  &::after {
-    content: '';
-    width: 260px;
-    height: 260px;
-    border-radius: 50%;
-    position: absolute;
-    right: -80px;
-    top: -110px;
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(99, 102, 241, 0.04));
-    filter: blur(2px);
-    pointer-events: none;
-  }
+  gap: 32px;
+  padding-bottom: 4px;
 }
 
 .hero-copy {
-  max-width: 690px;
-  position: relative;
-  z-index: 1;
-
-  .eyebrow {
-    display: inline-flex;
-    margin-bottom: 14px;
-    color: #4f46e5;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-  }
+  max-width: 640px;
 
   h1 {
-    margin: 0 0 12px;
+    margin: 0 0 10px;
     color: #0f172a;
-    font-size: clamp(30px, 3vw, 42px);
-    line-height: 1.14;
-    letter-spacing: -0.045em;
+    font-size: clamp(26px, 2.4vw, 34px);
+    line-height: 1.2;
+    letter-spacing: -0.035em;
   }
 
   p {
-    max-width: 620px;
     color: #64748b;
-    font-size: 15px;
-    line-height: 1.8;
+    font-size: 14px;
+    line-height: 1.7;
   }
 }
 
@@ -572,192 +579,233 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
-  min-height: 240px;
+  align-items: start;
+  gap: 24px;
+  min-height: 220px;
 }
 
-.card {
-  min-width: 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-  overflow: hidden;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
-
-  &:hover {
-    border-color: #bfdbfe;
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
-  }
-}
-
+/* 轻量新增入口：只占普通卡片约 2/3，默认几乎不发声，hover 才点亮 */
 .create-card {
-  min-height: 470px;
-  padding: 32px;
-  border: 1.5px dashed #cbd5e1;
-  background:
-    radial-gradient(circle at 50% 38%, rgba(219, 234, 254, 0.65), transparent 34%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
-  color: #64748b;
+  width: 66%;
+  min-width: 176px;
+  aspect-ratio: 210 / 297;
+  padding: 20px;
+  border: 1.5px dashed #dfe5ec;
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.55);
+  color: #94a3b8;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
+  cursor: pointer;
+  transition:
+    transform 250ms $paper-ease,
+    border-color 250ms ease,
+    background-color 250ms ease,
+    box-shadow 250ms ease;
 
   .create-icon {
-    width: 58px;
-    height: 58px;
-    margin-bottom: 8px;
-    border: 1px solid #dbeafe;
-    border-radius: 16px;
+    width: 44px;
+    height: 44px;
+    margin-bottom: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 50%;
     display: grid;
     place-items: center;
-    color: #2563eb;
+    color: #94a3b8;
     background: #fff;
-    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.12);
-    transition: transform 0.25s ease, color 0.25s ease;
+    transition:
+      transform 250ms $paper-ease,
+      color 250ms ease,
+      border-color 250ms ease,
+      box-shadow 250ms ease;
   }
 
   strong {
-    color: #0f172a;
-    font-size: 16px;
+    color: #475569;
+    font-size: 14px;
+    font-weight: 650;
+    transition: color 250ms ease;
   }
 
-  > span:last-child {
-    font-size: 13px;
+  .create-hint {
+    font-size: 12px;
   }
 
-  &:hover {
+  &:hover,
+  &:focus-visible {
+    transform: translateY(-4px);
     border-color: #60a5fa;
-    background:
-      radial-gradient(circle at 50% 38%, rgba(219, 234, 254, 0.9), transparent 36%),
-      linear-gradient(145deg, #fff, #f8fafc);
+    background: rgba(239, 246, 255, 0.7);
+    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.08);
   }
 
-  &:hover .create-icon {
-    color: #4f46e5;
-    transform: scale(1.06) rotate(2deg);
+  &:hover .create-icon,
+  &:focus-visible .create-icon {
+    transform: rotate(90deg) scale(1.08);
+    border-color: #bfdbfe;
+    color: #2563eb;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.16);
+  }
+
+  &:hover strong,
+  &:focus-visible strong {
+    color: #1d4ed8;
   }
 }
 
+/* 简历卡：没有外层容器，A4 纸张本身就是卡片 */
 .resume-card {
+  min-width: 0;
+  cursor: pointer;
+  perspective: 1400px;
   animation: card-enter 0.5s both;
   animation-delay: calc(var(--card-index, 0) * 60ms);
 }
 
-.preview-stage {
-  height: 350px;
-  overflow: hidden;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.52), rgba(255, 255, 255, 0.08)),
-    #eef2f7;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 18px 16px 0;
-  pointer-events: none;
-}
-
-.paper-preview {
-  width: 222px;
-  height: 314px;
-  overflow: hidden;
+.paper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 210 / 297;
+  border-radius: 4px;
   background: #fff;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.resume-card:hover .paper-preview {
-  transform: scale(1.03);
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16);
-}
-
-.card-body {
-  padding: 17px 18px 16px;
-}
-
-.resume-info {
-  min-width: 0;
-
-  h3 {
-    overflow: hidden;
-    color: #0f172a;
-    font-size: 16px;
-    line-height: 1.35;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  p {
-    margin-top: 5px;
-    color: #64748b;
-    font-size: 12px;
-  }
-}
-
-.card-footer {
-  min-height: 32px;
-  margin-top: 14px;
-  padding-top: 13px;
-  border-top: 1px solid #f1f5f9;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.updated-at {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  color: #94a3b8;
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  transform: translateY(0);
+  transition:
+    transform 250ms $paper-ease,
+    box-shadow 250ms $paper-ease;
 }
 
-.card-operations {
+/* 抬起纸张：位移 + 极轻微的 X 轴翻转，底边向上离开桌面 */
+.resume-card:hover .paper,
+.resume-card:focus-within .paper {
+  transform: translateY(-8px) rotateX(2deg);
+  box-shadow:
+    0 26px 50px rgba(15, 23, 42, 0.16),
+    0 8px 16px rgba(15, 23, 42, 0.06);
+}
+
+.paper-inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+
+  /* iframe 整页宽度远大于卡片，靠 flex 居中后再按 scale 收进纸张 */
+  :deep(.secure-preview) {
+    flex: none;
+  }
+
+  /* 阴影由外层纸张负责，避免缩略图内部再出现一层投影边 */
+  :deep(.frame) {
+    box-shadow: none;
+  }
+}
+
+/* 操作栏默认隐藏，hover / 键盘聚焦时从纸张底部淡入 */
+.paper-actions {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 44px 14px 14px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.94) 58%);
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  transition:
+    opacity 250ms $paper-ease,
+    transform 250ms $paper-ease;
+}
 
-  :deep(.edit-button) {
-    height: 30px;
-    margin: 0;
-    padding: 0 13px;
-    border: 0;
-    border-radius: 9px;
+.resume-card:hover .paper-actions,
+.resume-card:focus-within .paper-actions {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+:deep(.edit-button) {
+  height: 32px;
+  margin: 0;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #2563eb;
+  font-weight: 600;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
     color: #fff;
-    background: #2563eb;
-    font-weight: 600;
-    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.18);
-
-    &:hover {
-      color: #fff;
-      background: #1d4ed8;
-      transform: translateY(-1px);
-    }
+    background: #1d4ed8;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.34);
   }
 }
 
 .more-button {
-  width: 30px;
-  height: 30px;
-  border: 1px solid transparent;
-  border-radius: 9px;
-  background: transparent;
-  color: #64748b;
-  display: grid;
-  place-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   cursor: pointer;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
   transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 
   &:hover {
-    border-color: #e2e8f0;
+    border-color: #cbd5e1;
     color: #0f172a;
     background: #f8fafc;
+  }
+}
+
+.card-meta {
+  min-width: 0;
+  padding: 14px 2px 0;
+
+  h3 {
+    overflow: hidden;
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .meta-line {
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    color: #94a3b8;
+    font-size: 12px;
+    white-space: nowrap;
+
+    > span:first-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .dot {
+    color: #cbd5e1;
   }
 }
 
@@ -853,7 +901,7 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
   .hero {
     align-items: flex-start;
     flex-direction: column;
-    padding: 36px;
+    gap: 20px;
   }
 
   .grid {
@@ -876,19 +924,9 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
     padding: 24px 16px 48px;
   }
 
-  .hero {
-    min-height: 0;
-    padding: 28px 22px;
-  }
-
   .hero-copy {
     h1 {
-      font-size: 30px;
-    }
-
-    p {
-      font-size: 14px;
-      line-height: 1.7;
+      font-size: 26px;
     }
   }
 
@@ -910,20 +948,7 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
   }
 
   .create-card {
-    min-height: 280px;
-  }
-
-  .preview-stage {
-    height: 380px;
-  }
-
-  .paper-preview {
-    transform: scale(1.08);
-    transform-origin: top center;
-  }
-
-  .resume-card:hover .paper-preview {
-    transform: scale(1.11);
+    width: 62%;
   }
 }
 
@@ -932,10 +957,25 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
     animation: none;
   }
 
-  .card,
-  .paper-preview,
+  .paper,
+  .paper-actions,
+  .create-card,
+  .create-card .create-icon,
   .hero-actions :deep(.el-button) {
     transition: none;
+  }
+
+  .resume-card:hover .paper,
+  .resume-card:focus-within .paper {
+    transform: none;
+  }
+
+  .create-card:hover {
+    transform: none;
+  }
+
+  .create-card:hover .create-icon {
+    transform: none;
   }
 }
 </style>
