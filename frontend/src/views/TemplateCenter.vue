@@ -21,7 +21,6 @@ const resumeStore = useResumeStore();
 const userStore = useUserStore();
 const sampleData = createSampleResumeData();
 const creating = ref(false);
-const searchQuery = ref('');
 const activeCategory = ref('全部');
 const previewTemplate = ref<ITemplate | null>(null);
 const isPreviewVisible = ref(false);
@@ -29,7 +28,6 @@ const isPreviewVisible = ref(false);
 const categories: ITemplateCategory[] = [
   { label: '全部', keywords: [] },
   { label: '推荐', keywords: ['推荐', '内置'] },
-  { label: '热门', keywords: ['热门', '互联网', '极简'] },
   { label: '应届生', keywords: ['应届生', '校招', '学生', '实习'] },
   { label: '程序员', keywords: ['程序员', '开发', '工程师', '互联网', '技术'] },
   { label: '设计师', keywords: ['设计师', '设计', '极简'] },
@@ -39,23 +37,14 @@ const categories: ITemplateCategory[] = [
 ];
 
 const userInitial = computed(() => userStore.displayName.trim().charAt(0).toUpperCase() || 'U');
-const featuredTemplates = computed(() => {
-  const builtinTemplates = templateStore.list.filter((template) => template.is_builtin);
-  return (builtinTemplates.length ? builtinTemplates : templateStore.list).slice(0, 4);
-});
 const filteredTemplates = computed(() => {
-  const query = searchQuery.value.trim().toLocaleLowerCase();
   const category = categories.find((item) => item.label === activeCategory.value);
+  if (!category || category.label === '全部') return templateStore.list;
 
   return templateStore.list.filter((template) => {
     const searchableText = getTemplateSearchText(template);
-    const matchesSearch = !query || searchableText.includes(query);
-    const matchesCategory =
-      !category ||
-      category.label === '全部' ||
-      (category.label === '推荐' && template.is_builtin) ||
-      category.keywords.some((keyword) => searchableText.includes(keyword.toLocaleLowerCase()));
-    return matchesSearch && matchesCategory;
+    if (category.label === '推荐') return template.is_builtin;
+    return category.keywords.some((keyword) => searchableText.includes(keyword.toLocaleLowerCase()));
   });
 });
 
@@ -201,58 +190,15 @@ function selectCategory(category: string): void {
     </header>
 
     <main class="content">
-      <section class="hero">
-        <span class="eyebrow">专业简历模板市场</span>
-        <h1>选择一个适合你的简历模板</h1>
-        <p>专业设计模板，快速创建属于你的职业简历</p>
-        <div class="search-box">
-          <el-icon :size="19"><Search /></el-icon>
-          <input
-            v-model="searchQuery"
-            type="search"
-            placeholder="搜索模板，例如：程序员、设计师、应届生"
-            aria-label="搜索模板"
-          />
-          <kbd>⌘ K</kbd>
+      <section class="page-heading">
+        <div>
+          <h1>简历模板</h1>
+          <p>选择专业模板，快速创建你的职业简历</p>
         </div>
-      </section>
-
-      <section v-if="featuredTemplates.length" class="featured-section">
-        <div class="section-title">
-          <div>
-            <span class="title-icon">🔥</span>
-            <h2>热门模板</h2>
-          </div>
-          <p>为你精选的高质量职业简历模板</p>
-        </div>
-        <div class="featured-grid">
-          <button
-            v-for="tpl in featuredTemplates"
-            :key="tpl.template_id"
-            class="featured-card"
-            type="button"
-            @click="openPreview(tpl)"
-          >
-            <div class="featured-preview">
-              <PaperThumb :data="sampleData" :config="migrateTemplateConfig(tpl.config)" />
-            </div>
-            <div class="featured-info">
-              <span>精选模板</span>
-              <strong>{{ tpl.name }}</strong>
-              <el-icon><ArrowRight /></el-icon>
-            </div>
-          </button>
-        </div>
+        <span class="count">{{ filteredTemplates.length }} 个模板</span>
       </section>
 
       <section class="gallery-section">
-        <div class="gallery-heading">
-          <div>
-            <h2>探索全部模板</h2>
-            <span>{{ filteredTemplates.length }} 个模板</span>
-          </div>
-        </div>
-
         <div class="category-tabs" role="tablist" aria-label="模板分类">
           <button
             v-for="category in categories"
@@ -275,23 +221,30 @@ function selectCategory(category: string): void {
             :style="{ '--template-index': index }"
             @click="openPreview(tpl)"
           >
-            <PaperThumb :data="sampleData" :config="migrateTemplateConfig(tpl.config)">
-              <span v-if="tpl.is_builtin" class="official-badge">官方</span>
-              <div class="paper-actions" @click.stop>
-                <el-button class="use-button" :loading="creating" @click.stop="useTemplate(tpl)">
-                  使用
-                </el-button>
+            <div class="card-preview">
+              <PaperThumb :data="sampleData" :config="migrateTemplateConfig(tpl.config)">
+                <span v-if="tpl.is_builtin" class="official-badge">官方</span>
+                <div class="hover-layer" @click.stop>
+                  <el-button class="use-button" :loading="creating" @click.stop="useTemplate(tpl)">
+                    立即使用
+                  </el-button>
+                  <button class="preview-button" type="button" @click.stop="openPreview(tpl)">
+                    <el-icon><View /></el-icon>
+                    在线预览
+                  </button>
+                </div>
+              </PaperThumb>
+            </div>
+
+            <div class="card-meta">
+              <div class="meta-head">
+                <h3>{{ tpl.name }}</h3>
                 <el-dropdown trigger="click" placement="bottom-end">
-                  <button class="more-button" type="button" aria-label="模板更多操作">
-                    更多
-                    <el-icon><ArrowDown /></el-icon>
+                  <button class="more-button" type="button" aria-label="模板更多操作" @click.stop>
+                    <el-icon><MoreFilled /></el-icon>
                   </button>
                   <template #dropdown>
                     <el-dropdown-menu>
-                      <el-dropdown-item @click="openPreview(tpl)">
-                        <el-icon><View /></el-icon>
-                        查看预览
-                      </el-dropdown-item>
                       <el-dropdown-item @click="goEdit(tpl)">
                         <el-icon><EditPen /></el-icon>
                         {{ tpl.is_builtin ? '定制模板' : '编辑模板' }}
@@ -308,23 +261,17 @@ function selectCategory(category: string): void {
                   </template>
                 </el-dropdown>
               </div>
-            </PaperThumb>
-
-            <div class="card-meta">
-              <h3>{{ tpl.name }}</h3>
-              <p class="meta-line">
-                <span>{{ tpl.is_builtin ? '官方模板' : '个人模板' }}</span>
-                <span class="dot" aria-hidden="true">·</span>
-                <span>{{ getTemplateTags(tpl)[0] }}</span>
-              </p>
+              <div class="tags">
+                <span v-for="tag in getTemplateTags(tpl)" :key="tag">{{ tag }}</span>
+              </div>
             </div>
           </article>
 
           <div v-if="!templateStore.isLoading && !filteredTemplates.length" class="empty-state">
-            <span class="empty-icon"><el-icon :size="28"><Search /></el-icon></span>
-            <h3>没有找到匹配的模板</h3>
-            <p>试试其他关键词或切换模板分类</p>
-            <el-button @click="searchQuery = ''; activeCategory = '全部'">查看全部模板</el-button>
+            <span class="empty-icon"><el-icon :size="26"><Collection /></el-icon></span>
+            <h3>这个分类还没有模板</h3>
+            <p>切换其他分类，或创建属于你的模板</p>
+            <el-button @click="selectCategory('全部')">查看全部模板</el-button>
           </div>
         </div>
       </section>
@@ -400,6 +347,9 @@ function selectCategory(category: string): void {
 </template>
 
 <style scoped lang="scss">
+/* 与首页共用同一条缓动，保持纸张浮起手感一致 */
+$paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
 .template-market {
   min-height: 100%;
   background:
@@ -543,215 +493,41 @@ function selectCategory(category: string): void {
 .content {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 44px 24px 80px;
+  padding: 28px 24px 80px;
 }
 
-.hero {
-  padding: 52px 24px 48px;
-  text-align: center;
-
-  .eyebrow {
-    display: inline-block;
-    margin-bottom: 14px;
-    color: #4f46e5;
-    font-size: 12px;
-    font-weight: 750;
-    letter-spacing: 0.12em;
-  }
+/* 标题区压到 100px 以内，第一屏尽量多留给模板本身 */
+.page-heading {
+  min-height: 0;
+  padding: 4px 0 24px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
 
   h1 {
     margin: 0;
     color: #0f172a;
-    font-size: clamp(34px, 4vw, 50px);
-    line-height: 1.12;
-    letter-spacing: -0.05em;
+    font-size: 26px;
+    line-height: 1.25;
+    letter-spacing: -0.035em;
   }
 
   p {
-    margin-top: 15px;
+    margin-top: 8px;
     color: #64748b;
-    font-size: 16px;
-  }
-}
-
-.search-box {
-  width: min(620px, 100%);
-  height: 52px;
-  margin: 32px auto 0;
-  padding: 0 14px 0 17px;
-  border: 1px solid #dbe3ee;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: #94a3b8;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-
-  &:focus-within {
-    border-color: #93c5fd;
-    box-shadow: 0 14px 34px rgba(37, 99, 235, 0.12), 0 0 0 3px rgba(37, 99, 235, 0.08);
-  }
-
-  input {
-    min-width: 0;
-    flex: 1;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: #0f172a;
-    font: inherit;
     font-size: 14px;
-
-    &::placeholder {
-      color: #94a3b8;
-    }
-
-    &::-webkit-search-cancel-button {
-      cursor: pointer;
-    }
   }
 
-  kbd {
-    padding: 4px 7px;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    background: #f8fafc;
-    color: #94a3b8;
-    font-family: inherit;
-    font-size: 11px;
-  }
-}
-
-.featured-section {
-  margin-top: 12px;
-}
-
-.section-title {
-  margin-bottom: 16px;
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-
-  > div {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .title-icon {
-    font-size: 18px;
-  }
-
-  h2 {
-    color: #0f172a;
-    font-size: 20px;
-    letter-spacing: -0.03em;
-  }
-
-  p {
+  .count {
     color: #94a3b8;
     font-size: 12px;
-  }
-}
-
-.featured-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.featured-card {
-  min-width: 0;
-  padding: 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  background: #fff;
-  overflow: hidden;
-  display: flex;
-  text-align: left;
-  cursor: pointer;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-
-  &:hover {
-    border-color: #bfdbfe;
-    transform: translateY(-3px);
-    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
-  }
-}
-
-/* 与画廊卡片同一套预览：真实 A4 纸张，只是尺寸更小 */
-.featured-preview {
-  width: 146px;
-  flex: 0 0 146px;
-  padding: 16px 0 16px 16px;
-  pointer-events: none;
-}
-
-.featured-info {
-  min-width: 0;
-  padding: 20px 18px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-
-  span {
-    color: #2563eb;
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  strong {
-    max-width: 100%;
-    margin-top: 7px;
-    overflow: hidden;
-    color: #0f172a;
-    font-size: 16px;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
-
-  .el-icon {
-    margin-top: auto;
-    color: #94a3b8;
-    transition: transform 0.2s ease, color 0.2s ease;
-  }
-}
-
-.featured-card:hover .featured-info .el-icon {
-  color: #2563eb;
-  transform: translateX(4px);
 }
 
 .gallery-section {
-  margin-top: 42px;
-}
-
-.gallery-heading {
-  margin-bottom: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  > div {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-  }
-
-  h2 {
-    color: #0f172a;
-    font-size: 20px;
-    letter-spacing: -0.03em;
-  }
-
-  span {
-    color: #94a3b8;
-    font-size: 12px;
-  }
+  margin-top: 0;
 }
 
 .category-tabs {
@@ -794,30 +570,41 @@ function selectCategory(category: string): void {
   }
 }
 
-/* 与首页同一套栅格：A4 缩到约 210px 宽平铺 */
+/* 桌面 3~4 列，缩略图尽量多露出来 */
 .template-grid {
   min-height: 280px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   align-items: start;
   gap: 24px;
 }
 
 .template-card {
   min-width: 0;
+  padding: 14px 14px 4px;
+  border-radius: 12px;
+  background: #fff;
   cursor: pointer;
-  perspective: 1400px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 6px 18px rgba(15, 23, 42, 0.05);
   animation: card-enter 0.48s both;
   animation-delay: calc(var(--template-index, 0) * 55ms);
+  transition: box-shadow 250ms $paper-ease;
+
+  &:hover,
+  &:focus-within {
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06), 0 16px 36px rgba(15, 23, 42, 0.12);
+  }
 }
 
-/* 抬起纸张：与首页简历卡一致的手感 */
+.card-preview {
+  min-width: 0;
+}
+
+/* 纸张轻微浮起，阴影同步增强 */
 .template-card:hover .cv-paper,
 .template-card:focus-within .cv-paper {
-  transform: translateY(-8px) rotateX(2deg);
-  box-shadow:
-    0 26px 50px rgba(15, 23, 42, 0.16),
-    0 8px 16px rgba(15, 23, 42, 0.06);
+  transform: translateY(-6px);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
 }
 
 .official-badge {
@@ -825,7 +612,6 @@ function selectCategory(category: string): void {
   top: 10px;
   left: 10px;
   padding: 4px 8px;
-  border: 1px solid rgba(191, 219, 254, 0.9);
   border-radius: 999px;
   color: #1d4ed8;
   background: rgba(239, 246, 255, 0.92);
@@ -834,79 +620,89 @@ function selectCategory(category: string): void {
   font-weight: 700;
 }
 
-/* 操作栏默认隐藏，hover / 键盘聚焦时从纸张底部淡入 */
-.paper-actions {
+/* 半透明操作层：默认隐藏，hover / 键盘聚焦时淡入 */
+.hover-layer {
   position: absolute;
-  inset: auto 0 0;
-  padding: 36px 10px 12px;
+  inset: 0;
+  padding: 16px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.94) 58%);
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.38);
+  backdrop-filter: blur(2px);
   opacity: 0;
-  transform: translateY(12px);
   pointer-events: none;
-  transition:
-    opacity 250ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 250ms $paper-ease;
+
+  > * {
+    transform: translateY(6px);
+    transition: transform 250ms $paper-ease;
+  }
 }
 
-.template-card:hover .paper-actions,
-.template-card:focus-within .paper-actions {
+.template-card:hover .hover-layer,
+.template-card:focus-within .hover-layer {
   opacity: 1;
-  transform: translateY(0);
   pointer-events: auto;
+
+  > * {
+    transform: translateY(0);
+  }
 }
 
 :deep(.use-button) {
-  height: 30px;
+  width: 132px;
+  height: 34px;
   margin: 0;
-  padding: 0 16px;
   border: 0;
   border-radius: 999px;
   color: #fff;
   background: #2563eb;
-  font-weight: 600;
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
-  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  font-weight: 650;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.24);
 
   &:hover {
     color: #fff;
     background: #1d4ed8;
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.34);
   }
 }
 
-.more-button {
-  height: 30px;
-  padding: 0 12px;
-  border: 1px solid #e2e8f0;
+.preview-button {
+  width: 132px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 999px;
-  background: #fff;
-  color: #475569;
-  font-size: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  font-size: 13px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  flex: 0 0 auto;
+  justify-content: center;
+  gap: 5px;
   cursor: pointer;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
-  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+  transition: background-color 0.2s ease;
 
   &:hover {
-    border-color: #cbd5e1;
-    color: #0f172a;
-    background: #f8fafc;
+    background: #fff;
   }
 }
 
 .card-meta {
   min-width: 0;
-  padding: 14px 2px 0;
+  padding: 14px 2px 12px;
+}
+
+.meta-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 
   h3 {
+    min-width: 0;
     overflow: hidden;
     color: #0f172a;
     font-size: 14px;
@@ -915,25 +711,39 @@ function selectCategory(category: string): void {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
 
-  .meta-line {
-    margin-top: 4px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    overflow: hidden;
-    color: #94a3b8;
-    font-size: 12px;
-    white-space: nowrap;
+.more-button {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #94a3b8;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
 
-    > span:last-child {
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+  &:hover {
+    color: #0f172a;
+    background: #f1f5f9;
   }
+}
 
-  .dot {
-    color: #cbd5e1;
+.tags {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+
+  span {
+    padding: 3px 8px;
+    border-radius: 6px;
+    color: #64748b;
+    background: #f1f5f9;
+    font-size: 11px;
   }
 }
 
@@ -1161,10 +971,6 @@ function selectCategory(category: string): void {
 }
 
 @media (max-width: 1024px) {
-  .featured-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .modal-preview {
     grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
   }
@@ -1196,48 +1002,29 @@ function selectCategory(category: string): void {
     padding: 28px 16px 52px;
   }
 
-  .hero {
-    padding: 36px 4px 40px;
+  .page-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 20px;
 
     h1 {
-      font-size: 34px;
+      font-size: 22px;
     }
 
     p {
-      font-size: 14px;
+      font-size: 13px;
     }
   }
 
-  .search-box {
-    kbd {
-      display: none;
-    }
-  }
-
-  .section-title {
-    align-items: flex-start;
-
-    p {
-      display: none;
-    }
-  }
-
-  .featured-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* 窄屏保持两列，避免单列时纸张被拉得过大 */
+  /* 窄屏两列，纸张不会被拉得过大 */
   .template-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
+    gap: 14px;
   }
 
-  .featured-card:nth-child(n + 4) {
-    display: none;
-  }
-
-  .gallery-section {
-    margin-top: 34px;
+  .template-card {
+    padding: 10px 10px 2px;
   }
 
   .modal-preview {
@@ -1264,8 +1051,8 @@ function selectCategory(category: string): void {
   }
 
   .template-card,
-  .featured-card,
-  .paper-actions,
+  .hover-layer,
+  .hover-layer > *,
   :deep(.el-button) {
     transition: none;
   }
