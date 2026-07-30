@@ -376,9 +376,19 @@ function buildNode(
   };
 }
 
+/**
+ * 树的展示范围。
+ *
+ * current：只给出示例数据里真实存在的 s.*，面板短、一眼能扫完；
+ * all：完整上下文（basics / sections / vars / page / meta），并按字典补齐所有模块类型。
+ */
+export type TTreeScope = 'current' | 'all';
+
 export interface IBuildTreeOptions {
   /** 模板声明的变量，用于给 vars.* 显示模板作者写的 label */
   variables?: ITemplateVariable[];
+  /** 缺省 current */
+  scope?: TTreeScope;
 }
 
 /**
@@ -388,10 +398,19 @@ export function buildVariableTree(
   context: IRenderContext,
   options: IBuildTreeOptions = {}
 ): IVarNode[] {
+  const variables = options.variables || [];
+
+  if ((options.scope || 'current') === 'current') {
+    const ctx: IBuildContext = { variables, syntheticSectionTypes: new Set() };
+    const root = buildNode('s', currentSectionIndex(context), 's', 's', '', 'root', 1, ctx);
+    // 不展示 s 这一层，直接把各模块提到顶层；标签换成完整路径，看到的就是要写的变量名
+    return (root.children || []).map((node) => ({ ...node, label: node.path }));
+  }
+
   const { s, syntheticTypes } = enrichSectionIndex(context);
 
   const ctx: IBuildContext = {
-    variables: options.variables || [],
+    variables,
     syntheticSectionTypes: syntheticTypes,
   };
 
@@ -404,6 +423,17 @@ export function buildVariableTree(
   }
 
   return nodes;
+}
+
+/**
+ * 当前模块索引：示例数据里真实存在的那几个模块，去掉 undefined 占位。
+ */
+function currentSectionIndex(context: IRenderContext): Record<string, unknown> {
+  const s: Record<string, unknown> = {};
+  for (const [type, value] of Object.entries(context.s as Record<string, unknown>)) {
+    if (value) s[type] = value;
+  }
+  return s;
 }
 
 /**

@@ -1,18 +1,20 @@
 <script setup lang="ts">
 /**
  * 变量面板：变量树 + 循环变量 + 语法片段
- * 点击任意条目把对应片段插入代码编辑器。
+ * 点击任意条目把对应的变量名（或片段）复制到剪贴板，自己粘贴到代码里。
  */
 import { computed, ref, watch } from 'vue';
-import type { ElTree } from 'element-plus';
+import { ElMessage, type ElTree } from 'element-plus';
 import type { IRenderContext } from '/@/features/template-renderer';
 import { listHelperNames } from '/@/features/template-renderer';
 import type { ITemplateVariable } from '/@/types/template';
+import { copyText } from '/@/utils/clipboard';
 import {
   buildVariableTree,
   LOOP_VARIABLES,
   SYNTAX_SNIPPETS,
   type IVarNode,
+  type TTreeScope,
 } from './variableTree';
 
 const props = defineProps<{
@@ -21,12 +23,14 @@ const props = defineProps<{
   variables?: ITemplateVariable[];
 }>();
 
-const emit = defineEmits<{
-  (e: 'insert', snippet: string): void;
-}>();
-
 const keyword = ref('');
 const activeTab = ref('vars');
+
+/**
+ * 默认只列当前简历里真实存在的模块（s.*）。
+ * 变量取值在中间「变量」页声明，页面设置在「页面」页，不必在这里重复一遍整份上下文。
+ */
+const scope = ref<TTreeScope>('current');
 
 /**
  * 语法示例文本必须放在 script 里：写在 template 中会被 Vue 编译器
@@ -38,9 +42,15 @@ const SYNTAX_SAMPLE = {
 } as const;
 
 const tree = computed(() =>
-  buildVariableTree(props.context, { variables: props.variables || [] })
+  buildVariableTree(props.context, {
+    variables: props.variables || [],
+    scope: scope.value,
+  })
 );
 const helperNames = computed(() => listHelperNames());
+
+/** 精简模式下顶层就是各模块，不需要预展开；全部模式先展开基本信息 */
+const defaultExpanded = computed(() => (scope.value === 'current' ? [] : ['root/basics']));
 
 /** el-tree 的过滤回调拿到的是 TreeNodeData（Record<string, any>），这里收窄回自己的节点类型 */
 function filterNode(value: string, data: Record<string, unknown>): boolean {
@@ -63,8 +73,23 @@ watch(keyword, (value) => {
   treeRef.value?.filter(value);
 });
 
+/** 切换范围后树重建，已有的关键字要重新过滤一遍 */
+watch(scope, () => {
+  treeRef.value?.filter(keyword.value);
+});
+
+async function copy(text: string) {
+  const ok = await copyText(text);
+  if (ok) {
+    ElMessage.success({ message: `已复制 ${text}`, duration: 1200 });
+    return;
+  }
+  ElMessage.error('复制失败，请手动选中文本复制');
+}
+
+/** 点击节点复制变量名（数组节点复制的是列表本身的路径） */
 function onNodeClick(data: IVarNode) {
-  emit('insert', data.snippet);
+  copy(data.path);
 }
 </script>
 
@@ -72,6 +97,10 @@ function onNodeClick(data: IVarNode) {
   <div class="var-panel">
     <el-tabs v-model="activeTab" class="tabs">
       <el-tab-pane label="变量" name="vars">
+        <el-radio-group v-model="scope" size="small" class="scope">
+          <el-radio-button value="current">当前模块</el-radio-button>
+          <el-radio-button value="all">全部变量</el-radio-button>
+        </el-radio-group>
         <el-input
           v-model="keyword"
           size="small"
@@ -80,8 +109,15 @@ function onNodeClick(data: IVarNode) {
           class="search"
         />
         <p class="hint">
-          上行是字段含义，下行是模板里要写的字段名。点击即插入到光标处：
-          数组插入 each 循环，Safe 字段插入 <code>{{ SYNTAX_SAMPLE.raw }}</code> 形式。
+          上行是字段含义，下行是模板里要写的变量名。点击即复制变量名，粘贴到 HTML / CSS 里用；
+          <code>Safe</code> 结尾的字段要用 <code>{{ SYNTAX_SAMPLE.raw }}</code> 形式输出。
+        </p>
+        <p class="hint">
+          <template v-if="scope === 'current'">
+            这里只列当前简历里真实存在的模块。变量取值在中间「变量」页声明，页边距在「页面」页设置；
+            要看 basics、sections、vars、page 等完整上下文，切到「全部变量」。
+          </template>
+          <template v-else>完整渲染上下文，含示例数据里暂时没有的模块类型。</template>
         </p>
         <el-tree
           ref="treeRef"
@@ -89,7 +125,7 @@ function onNodeClick(data: IVarNode) {
           node-key="id"
           :props="{ label: 'label', children: 'children' }"
           :filter-node-method="filterNode"
-          :default-expanded-keys="['root/basics']"
+          :default-expanded-keys="defaultExpanded"
           :expand-on-click-node="false"
           class="tree"
           @node-click="onNodeClick"
@@ -108,14 +144,14 @@ function onNodeClick(data: IVarNode) {
 
       <el-tab-pane label="循环内" name="loop">
         <p class="hint">
-          这些变量只在 <code>{{ SYNTAX_SAMPLE.each }}</code> 内部有效。
+          这些变量只在 <code>{{ SYNTAX_SAMPLE.each }}</code> 内部有效，点击复制变量名。
         </p>
         <button
           v-for="v in LOOP_VARIABLES"
           :key="v.path"
           type="button"
           class="row"
-          @click="emit('insert', v.snippet)"
+          @click="copy(v.path)"
         >
           <code>{{ v.path }}</code>
           <span>{{ v.label }}</span>
@@ -123,13 +159,13 @@ function onNodeClick(data: IVarNode) {
       </el-tab-pane>
 
       <el-tab-pane label="语法" name="syntax">
-        <p class="hint">常用结构，插入后替换其中的占位表达式。</p>
+        <p class="hint">常用结构，点击复制片段，粘贴后替换其中的占位表达式。</p>
         <button
           v-for="s in SYNTAX_SNIPPETS"
           :key="s.label"
           type="button"
           class="row"
-          @click="emit('insert', s.snippet)"
+          @click="copy(s.snippet)"
         >
           <span>{{ s.label }}</span>
         </button>
@@ -146,6 +182,10 @@ function onNodeClick(data: IVarNode) {
 <style scoped lang="scss">
 .var-panel {
   font-size: 13px;
+}
+
+.scope {
+  margin-bottom: 8px;
 }
 
 .search {

@@ -5,7 +5,6 @@
  * 用 textarea + 行号栏实现，不引入编辑器库。提供的能力：
  *   - 行号，错误行标红
  *   - Tab / Shift+Tab 缩进（支持多行选区）
- *   - 在光标处插入片段（供变量树调用）
  */
 import { computed, nextTick, ref, watch } from 'vue';
 
@@ -104,25 +103,6 @@ function restoreSelection(start: number, end: number) {
     el.focus();
   });
 }
-
-/** 在光标处插入文本，供外部（变量树）调用 */
-function insertAtCursor(snippet: string) {
-  const el = textareaRef.value;
-  const value = props.modelValue;
-
-  if (!el) {
-    emit('update:modelValue', value + snippet);
-    return;
-  }
-
-  const start = el.selectionStart;
-  const end = el.selectionEnd;
-  const next = value.slice(0, start) + snippet + value.slice(end);
-  emit('update:modelValue', next);
-  restoreCursor(start + snippet.length);
-}
-
-defineExpose({ insertAtCursor });
 
 // 出现错误时把错误行滚动到可视区
 watch(

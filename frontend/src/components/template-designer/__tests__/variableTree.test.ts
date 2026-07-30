@@ -9,10 +9,10 @@ import { buildVariableTree, type IVarNode } from '../variableTree';
 
 const config = normalizeTemplateConfig(getBuiltinTemplate('modern')?.config);
 const context = buildRenderContext(createSampleResumeData(), config);
-const tree = buildVariableTree(context, { variables: config.variables });
+const tree = buildVariableTree(context, { variables: config.variables, scope: 'all' });
 
-function find(path: string[]): IVarNode | undefined {
-  let nodes: IVarNode[] | undefined = tree;
+function findIn(roots: IVarNode[], path: string[]): IVarNode | undefined {
+  let nodes: IVarNode[] | undefined = roots;
   let node: IVarNode | undefined;
   for (const key of path) {
     node = nodes?.find((n) => n.label === key);
@@ -20,6 +20,10 @@ function find(path: string[]): IVarNode | undefined {
     nodes = node.children;
   }
   return node;
+}
+
+function find(path: string[]): IVarNode | undefined {
+  return findIn(tree, path);
 }
 
 describe('buildVariableTree 别名', () => {
@@ -99,6 +103,34 @@ describe('buildVariableTree 别名', () => {
     };
     walk(tree);
     expect(missing).toEqual([]);
+  });
+});
+
+describe('buildVariableTree 默认范围', () => {
+  const current = buildVariableTree(context, { variables: config.variables });
+
+  it('顶层直接是各模块，不再套一层 s，标签就是变量名', () => {
+    const labels = current.map((n) => n.label);
+    expect(labels).toContain('s.experience');
+    expect(labels).toContain('s.education');
+    expect(labels.every((l) => l.startsWith('s.'))).toBe(true);
+  });
+
+  it('只有示例数据里真实存在的模块，不再补齐', () => {
+    const labels = current.map((n) => n.label);
+    expect(labels).not.toContain('s.awards');
+    expect(labels).not.toContain('s.certificates');
+  });
+
+  it('顶层模块保留中文别名', () => {
+    expect(current.find((n) => n.label === 's.experience')?.alias).toBe('工作经历');
+  });
+
+  it('模块字段仍带别名与可复制路径', () => {
+    const title = findIn(current, ['s.experience', 'items[]', 'title']);
+    expect(title?.alias).toBe('主标题');
+    expect(title?.path).toBe('this.title');
+    expect(findIn(current, ['s.experience'])?.path).toBe('s.experience');
   });
 });
 

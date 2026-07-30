@@ -54,9 +54,6 @@ const SYNTAX_SAMPLE = {
   raw: '{{& fieldSafe}}',
 } as const;
 
-const htmlEditorRef = ref<InstanceType<typeof CodeEditor> | null>(null);
-const cssEditorRef = ref<InstanceType<typeof CodeEditor> | null>(null);
-
 const undoStack = ref<ITemplateConfig[]>([]);
 const redoStack = ref<ITemplateConfig[]>([]);
 const MAX_HISTORY = 50;
@@ -178,17 +175,6 @@ function updateMeta(key: 'title' | 'description', value: string) {
   const next = cloneConfig(config.value);
   next.meta = { ...next.meta, [key]: value };
   applyConfig(next);
-}
-
-function insertSnippet(snippet: string) {
-  if (activeTab.value === 'css') {
-    cssEditorRef.value?.insertAtCursor(snippet);
-    return;
-  }
-  if (activeTab.value !== 'html') {
-    activeTab.value = 'html';
-  }
-  htmlEditorRef.value?.insertAtCursor(snippet);
 }
 
 /* ============================================================
@@ -381,11 +367,7 @@ watch(
 
     <div class="workspace">
       <aside class="side no-print">
-        <VariableTree
-          :context="previewContext"
-          :variables="config.variables"
-          @insert="insertSnippet"
-        />
+        <VariableTree :context="previewContext" :variables="config.variables" />
       </aside>
 
       <section class="editor-pane no-print">
@@ -397,7 +379,6 @@ watch(
               <code>{{ SYNTAX_SAMPLE.raw }}</code> 输出。禁止 script 与事件属性。
             </p>
             <CodeEditor
-              ref="htmlEditorRef"
               :model-value="config.source.html || ''"
               :error-line="errorLine"
               placeholder="<article class=&quot;cv&quot;>…</article>"
@@ -411,7 +392,6 @@ watch(
               可用 <code>var(--tpl-*)</code> 读取变量，<code>var(--page-margin-top)</code> 读取页边距。
             </p>
             <CodeEditor
-              ref="cssEditorRef"
               :model-value="config.source.css || ''"
               placeholder=".cv { padding: var(--page-margin-top); }"
               @update:model-value="(v: string) => updateSource('css', v)"
