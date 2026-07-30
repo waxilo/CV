@@ -7,7 +7,7 @@ import { useResumeStore } from '/@/stores/resume';
 import { useUserStore } from '/@/stores/user';
 import { createSampleResumeData } from '/@/features/template-renderer/sampleData';
 import { migrateTemplateConfig } from '/@/features/template-renderer';
-import SecureResumeFrame from '/@/components/preview/SecureResumeFrame.vue';
+import PaperThumb from '/@/components/preview/PaperThumb.vue';
 import type { ITemplate } from '/@/types/template';
 
 interface ITemplateCategory {
@@ -234,11 +234,7 @@ function selectCategory(category: string): void {
             @click="openPreview(tpl)"
           >
             <div class="featured-preview">
-              <SecureResumeFrame
-                :data="sampleData"
-                :config="migrateTemplateConfig(tpl.config)"
-                :scale="0.17"
-              />
+              <PaperThumb :data="sampleData" :config="migrateTemplateConfig(tpl.config)" />
             </div>
             <div class="featured-info">
               <span>精选模板</span>
@@ -279,42 +275,23 @@ function selectCategory(category: string): void {
             :style="{ '--template-index': index }"
             @click="openPreview(tpl)"
           >
-            <div class="preview-stage">
-              <div class="paper-preview">
-                <SecureResumeFrame
-                  :data="sampleData"
-                  :config="migrateTemplateConfig(tpl.config)"
-                  :scale="0.27"
-                />
-              </div>
-              <div class="quick-actions">
-                <el-button class="preview-button" @click.stop="openPreview(tpl)">
-                  <el-icon><View /></el-icon>
-                  查看预览
+            <PaperThumb :data="sampleData" :config="migrateTemplateConfig(tpl.config)">
+              <span v-if="tpl.is_builtin" class="official-badge">官方</span>
+              <div class="paper-actions" @click.stop>
+                <el-button class="use-button" :loading="creating" @click.stop="useTemplate(tpl)">
+                  使用
                 </el-button>
-                <el-button
-                  class="use-overlay-button"
-                  :loading="creating"
-                  @click.stop="useTemplate(tpl)"
-                >
-                  使用模板
-                </el-button>
-              </div>
-              <span v-if="tpl.is_builtin" class="official-badge">官方精选</span>
-            </div>
-
-            <div class="card-body">
-              <div class="card-heading">
-                <div>
-                  <h3>{{ tpl.name }}</h3>
-                  <p>{{ getTemplateDescription(tpl) }}</p>
-                </div>
                 <el-dropdown trigger="click" placement="bottom-end">
-                  <button class="more-button" type="button" aria-label="模板更多操作" @click.stop>
-                    <el-icon><MoreFilled /></el-icon>
+                  <button class="more-button" type="button" aria-label="模板更多操作">
+                    更多
+                    <el-icon><ArrowDown /></el-icon>
                   </button>
                   <template #dropdown>
                     <el-dropdown-menu>
+                      <el-dropdown-item @click="openPreview(tpl)">
+                        <el-icon><View /></el-icon>
+                        查看预览
+                      </el-dropdown-item>
                       <el-dropdown-item @click="goEdit(tpl)">
                         <el-icon><EditPen /></el-icon>
                         {{ tpl.is_builtin ? '定制模板' : '编辑模板' }}
@@ -331,19 +308,15 @@ function selectCategory(category: string): void {
                   </template>
                 </el-dropdown>
               </div>
+            </PaperThumb>
 
-              <div class="tags">
-                <span v-for="tag in getTemplateTags(tpl)" :key="tag">{{ tag }}</span>
-              </div>
-
-              <el-button
-                class="use-button"
-                :loading="creating"
-                @click.stop="useTemplate(tpl)"
-              >
-                立即使用
-                <el-icon><ArrowRight /></el-icon>
-              </el-button>
+            <div class="card-meta">
+              <h3>{{ tpl.name }}</h3>
+              <p class="meta-line">
+                <span>{{ tpl.is_builtin ? '官方模板' : '个人模板' }}</span>
+                <span class="dot" aria-hidden="true">·</span>
+                <span>{{ getTemplateTags(tpl)[0] }}</span>
+              </p>
             </div>
           </article>
 
@@ -368,10 +341,10 @@ function selectCategory(category: string): void {
         <div class="modal-preview">
           <div class="modal-preview-stage">
             <div class="modal-paper">
-              <SecureResumeFrame
+              <PaperThumb
                 :data="sampleData"
                 :config="migrateTemplateConfig(previewTemplate.config)"
-                :scale="0.52"
+                :fallback-scale="0.52"
               />
             </div>
           </div>
@@ -568,9 +541,9 @@ function selectCategory(category: string): void {
 }
 
 .content {
-  max-width: 1320px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 44px 28px 80px;
+  padding: 44px 24px 80px;
 }
 
 .hero {
@@ -690,7 +663,6 @@ function selectCategory(category: string): void {
 }
 
 .featured-card {
-  height: 156px;
   min-width: 0;
   padding: 0;
   border: 1px solid #e2e8f0;
@@ -710,20 +682,17 @@ function selectCategory(category: string): void {
   }
 }
 
+/* 与画廊卡片同一套预览：真实 A4 纸张，只是尺寸更小 */
 .featured-preview {
-  width: 132px;
-  flex: 0 0 132px;
-  overflow: hidden;
-  background: #eef2f7;
-  display: flex;
-  justify-content: center;
-  padding-top: 10px;
+  width: 146px;
+  flex: 0 0 146px;
+  padding: 16px 0 16px 16px;
   pointer-events: none;
 }
 
 .featured-info {
   min-width: 0;
-  padding: 22px 18px;
+  padding: 20px 18px;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -825,171 +794,149 @@ function selectCategory(category: string): void {
   }
 }
 
+/* 与首页同一套栅格：A4 缩到约 210px 宽平铺 */
 .template-grid {
   min-height: 280px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  align-items: start;
+  gap: 24px;
 }
 
 .template-card {
   min-width: 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  background: #fff;
-  overflow: hidden;
   cursor: pointer;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  perspective: 1400px;
   animation: card-enter 0.48s both;
   animation-delay: calc(var(--template-index, 0) * 55ms);
-  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-
-  &:hover {
-    border-color: #bfdbfe;
-    transform: translateY(-6px);
-    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
-  }
 }
 
-.preview-stage {
-  height: 350px;
-  padding: 18px 16px 0;
-  overflow: hidden;
-  position: relative;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.54), rgba(255, 255, 255, 0.08)),
-    #edf1f6;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-}
-
-.paper-preview {
-  width: 222px;
-  height: 314px;
-  overflow: hidden;
-  background: #fff;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.13);
-  pointer-events: none;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.template-card:hover .paper-preview {
-  transform: scale(1.03);
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.17);
+/* 抬起纸张：与首页简历卡一致的手感 */
+.template-card:hover .cv-paper,
+.template-card:focus-within .cv-paper {
+  transform: translateY(-8px) rotateX(2deg);
+  box-shadow:
+    0 26px 50px rgba(15, 23, 42, 0.16),
+    0 8px 16px rgba(15, 23, 42, 0.06);
 }
 
 .official-badge {
   position: absolute;
-  top: 14px;
-  left: 14px;
-  padding: 5px 9px;
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  top: 10px;
+  left: 10px;
+  padding: 4px 8px;
+  border: 1px solid rgba(191, 219, 254, 0.9);
   border-radius: 999px;
   color: #1d4ed8;
-  background: rgba(239, 246, 255, 0.9);
+  background: rgba(239, 246, 255, 0.92);
   backdrop-filter: blur(8px);
   font-size: 10px;
   font-weight: 700;
 }
 
-.quick-actions {
-  padding: 18px;
+/* 操作栏默认隐藏，hover / 键盘聚焦时从纸张底部淡入 */
+.paper-actions {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(15, 23, 42, 0.56), rgba(15, 23, 42, 0.04) 60%);
-  opacity: 0;
+  inset: auto 0 0;
+  padding: 36px 10px 12px;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: opacity 0.25s ease;
-
-  :deep(.el-button) {
-    height: 36px;
-    margin: 0;
-    border-radius: 9px;
-    font-weight: 600;
-    transform: translateY(8px);
-    transition: transform 0.25s ease;
-  }
-
-  .preview-button {
-    border-color: rgba(255, 255, 255, 0.8);
-    color: #0f172a;
-    background: rgba(255, 255, 255, 0.94);
-  }
-
-  .use-overlay-button {
-    border-color: #2563eb;
-    color: #fff;
-    background: #2563eb;
-  }
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.94) 58%);
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  transition:
+    opacity 250ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 250ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.template-card:hover .quick-actions {
+.template-card:hover .paper-actions,
+.template-card:focus-within .paper-actions {
   opacity: 1;
-
-  :deep(.el-button) {
-    transform: translateY(0);
-  }
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
-.card-body {
-  padding: 18px;
-}
+:deep(.use-button) {
+  height: 30px;
+  margin: 0;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #2563eb;
+  font-weight: 600;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
 
-.card-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-
-  > div {
-    min-width: 0;
-  }
-
-  h3 {
-    overflow: hidden;
-    color: #0f172a;
-    font-size: 16px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  p {
-    min-height: 36px;
-    margin-top: 6px;
-    overflow: hidden;
-    color: #64748b;
-    display: -webkit-box;
-    font-size: 12px;
-    line-height: 1.5;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+  &:hover {
+    color: #fff;
+    background: #1d4ed8;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.34);
   }
 }
 
 .more-button {
-  width: 30px;
   height: 30px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: #64748b;
-  display: grid;
-  place-items: center;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   flex: 0 0 auto;
   cursor: pointer;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 
   &:hover {
-    border-color: #e2e8f0;
+    border-color: #cbd5e1;
     color: #0f172a;
     background: #f8fafc;
   }
 }
 
-.tags,
+.card-meta {
+  min-width: 0;
+  padding: 14px 2px 0;
+
+  h3 {
+    overflow: hidden;
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .meta-line {
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    color: #94a3b8;
+    font-size: 12px;
+    white-space: nowrap;
+
+    > span:last-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .dot {
+    color: #cbd5e1;
+  }
+}
+
 .modal-tags {
   margin-top: 14px;
   display: flex;
@@ -1002,24 +949,6 @@ function selectCategory(category: string): void {
     color: #64748b;
     background: #f1f5f9;
     font-size: 10px;
-  }
-}
-
-:deep(.use-button) {
-  width: 100%;
-  height: 38px;
-  margin: 16px 0 0;
-  border: 1px solid #dbeafe;
-  border-radius: 10px;
-  color: #2563eb;
-  background: #eff6ff;
-  font-weight: 650;
-
-  &:hover {
-    border-color: #2563eb;
-    color: #fff;
-    background: #2563eb;
-    transform: translateY(-1px);
   }
 }
 
@@ -1081,8 +1010,8 @@ function selectCategory(category: string): void {
   padding: 42px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.7), transparent 50%),
-    #e9eef5;
+    radial-gradient(circle at 50% 12%, rgba(219, 234, 254, 0.5), transparent 55%),
+    #f8fafc;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -1090,10 +1019,11 @@ function selectCategory(category: string): void {
 
 .modal-paper {
   width: 413px;
-  height: 584px;
-  overflow: hidden;
-  background: #fff;
-  box-shadow: 0 22px 55px rgba(15, 23, 42, 0.18);
+  max-width: 100%;
+
+  :deep(.cv-paper) {
+    box-shadow: 0 22px 55px rgba(15, 23, 42, 0.18);
+  }
 }
 
 .modal-details {
@@ -1231,8 +1161,7 @@ function selectCategory(category: string): void {
 }
 
 @media (max-width: 1024px) {
-  .featured-grid,
-  .template-grid {
+  .featured-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1293,9 +1222,14 @@ function selectCategory(category: string): void {
     }
   }
 
-  .featured-grid,
-  .template-grid {
+  .featured-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* 窄屏保持两列，避免单列时纸张被拉得过大 */
+  .template-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
   }
 
   .featured-card:nth-child(n + 4) {
@@ -1304,23 +1238,6 @@ function selectCategory(category: string): void {
 
   .gallery-section {
     margin-top: 34px;
-  }
-
-  .preview-stage {
-    height: 380px;
-  }
-
-  .paper-preview {
-    transform: scale(1.08);
-    transform-origin: top center;
-  }
-
-  .template-card:hover .paper-preview {
-    transform: scale(1.11);
-  }
-
-  .quick-actions {
-    display: none;
   }
 
   .modal-preview {
@@ -1333,8 +1250,7 @@ function selectCategory(category: string): void {
   }
 
   .modal-paper {
-    transform: scale(0.66);
-    transform-origin: top center;
+    width: 262px;
   }
 
   .modal-details {
@@ -1349,9 +1265,14 @@ function selectCategory(category: string): void {
 
   .template-card,
   .featured-card,
-  .paper-preview,
+  .paper-actions,
   :deep(.el-button) {
     transition: none;
+  }
+
+  .template-card:hover .cv-paper,
+  .template-card:focus-within .cv-paper {
+    transform: none;
   }
 }
 </style>

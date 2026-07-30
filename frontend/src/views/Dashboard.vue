@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getBuiltinTemplate, type ITemplate, type ITemplateConfig } from '/@/types/template';
@@ -8,7 +8,7 @@ import { useResumeStore } from '/@/stores/resume';
 import { useTemplateStore } from '/@/stores/template';
 import { migrateTemplateConfig } from '/@/features/template-renderer';
 import { createSampleResumeData } from '/@/features/template-renderer/sampleData';
-import SecureResumeFrame from '/@/components/preview/SecureResumeFrame.vue';
+import PaperThumb from '/@/components/preview/PaperThumb.vue';
 import type { IResumeData, IResumeSummary } from '/@/types/resume';
 
 const router = useRouter();
@@ -22,48 +22,11 @@ const selectedTemplateId = ref('modern');
 const sampleResumeData = createSampleResumeData();
 const userInitial = computed(() => userStore.displayName.trim().charAt(0).toUpperCase() || 'U');
 
-/** A4 纸宽 210mm 在 96dpi 下的像素宽度，用于把整页换算成缩略图缩放比 */
-const A4_WIDTH_PX = (210 * 96) / 25.4;
-const gridRef = ref<HTMLElement | null>(null);
-const paperWidth = ref(320);
-const thumbScale = computed(() => paperWidth.value / A4_WIDTH_PX);
-let gridObserver: ResizeObserver | null = null;
-
-/**
- * 卡片不再用固定像素裁切缩略图，而是让 A4 纸张跟随栅格列宽。
- * 直接读计算后的 grid-template-columns，比按断点硬编码列数可靠。
- */
-function measurePaperWidth() {
-  const el = gridRef.value;
-  if (!el) return;
-  const firstColumn = getComputedStyle(el)
-    .gridTemplateColumns.split(' ')
-    .map((value) => Number.parseFloat(value))
-    .find((value) => Number.isFinite(value) && value > 0);
-  if (firstColumn && Math.abs(firstColumn - paperWidth.value) > 0.5) {
-    paperWidth.value = firstColumn;
-  }
-}
-
 onMounted(async () => {
-  if (typeof ResizeObserver !== 'undefined') {
-    gridObserver = new ResizeObserver(() => measurePaperWidth());
-    if (gridRef.value) gridObserver.observe(gridRef.value);
-  }
-  await nextTick();
-  measurePaperWidth();
-
   await Promise.all([resumeStore.fetchList(), templateStore.fetchList()]);
   if (templateStore.list.length) {
     selectedTemplateId.value = templateStore.list[0].template_id;
   }
-  await nextTick();
-  measurePaperWidth();
-});
-
-onBeforeUnmount(() => {
-  gridObserver?.disconnect();
-  gridObserver = null;
 });
 
 function openCreateDialog() {
@@ -237,7 +200,7 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
           <p>最近更新</p>
         </div>
 
-        <div ref="gridRef" v-loading="resumeStore.isLoading" class="grid">
+        <div v-loading="resumeStore.isLoading" class="grid">
           <button class="create-card" type="button" @click="openCreateDialog">
             <span class="create-icon"><el-icon :size="22"><Plus /></el-icon></span>
             <strong>创建新简历</strong>
@@ -251,14 +214,7 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
             :style="{ '--card-index': index }"
             @click="openEditor(item.resume_id)"
           >
-            <div class="paper">
-              <div class="paper-inner">
-                <SecureResumeFrame
-                  :data="resumePreviewData(item)"
-                  :config="resumeThumbConfig(item)"
-                  :scale="thumbScale"
-                />
-              </div>
+            <PaperThumb :data="resumePreviewData(item)" :config="resumeThumbConfig(item)">
               <div class="paper-actions" @click.stop>
                 <el-button class="edit-button" size="small" @click="openEditor(item.resume_id)">
                   编辑
@@ -278,7 +234,7 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
                   </template>
                 </el-dropdown>
               </div>
-            </div>
+            </PaperThumb>
 
             <div class="card-meta">
               <h3>{{ item.title }}</h3>
@@ -576,22 +532,22 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 
+/* 缩略图控制在 A4 缩到约 210px 宽，一屏能平铺更多简历 */
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   align-items: start;
   gap: 24px;
   min-height: 220px;
 }
 
-/* 轻量新增入口：只占普通卡片约 2/3，默认几乎不发声，hover 才点亮 */
+/* 新增入口与简历预览同尺寸，只靠留白和虚线降低视觉权重 */
 .create-card {
-  width: 66%;
-  min-width: 176px;
+  width: 100%;
   aspect-ratio: 210 / 297;
   padding: 20px;
   border: 1.5px dashed #dfe5ec;
-  border-radius: 10px;
+  border-radius: 4px;
   background: rgba(248, 250, 252, 0.55);
   color: #94a3b8;
   display: flex;
@@ -665,53 +621,20 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
   animation-delay: calc(var(--card-index, 0) * 60ms);
 }
 
-.paper {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 210 / 297;
-  border-radius: 4px;
-  background: #fff;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  transform: translateY(0);
-  transition:
-    transform 250ms $paper-ease,
-    box-shadow 250ms $paper-ease;
-}
-
 /* 抬起纸张：位移 + 极轻微的 X 轴翻转，底边向上离开桌面 */
-.resume-card:hover .paper,
-.resume-card:focus-within .paper {
+.resume-card:hover .cv-paper,
+.resume-card:focus-within .cv-paper {
   transform: translateY(-8px) rotateX(2deg);
   box-shadow:
     0 26px 50px rgba(15, 23, 42, 0.16),
     0 8px 16px rgba(15, 23, 42, 0.06);
 }
 
-.paper-inner {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  overflow: hidden;
-  pointer-events: none;
-
-  /* iframe 整页宽度远大于卡片，靠 flex 居中后再按 scale 收进纸张 */
-  :deep(.secure-preview) {
-    flex: none;
-  }
-
-  /* 阴影由外层纸张负责，避免缩略图内部再出现一层投影边 */
-  :deep(.frame) {
-    box-shadow: none;
-  }
-}
-
 /* 操作栏默认隐藏，hover / 键盘聚焦时从纸张底部淡入 */
 .paper-actions {
   position: absolute;
   inset: auto 0 0;
-  padding: 44px 14px 14px;
+  padding: 36px 10px 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -733,9 +656,9 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 :deep(.edit-button) {
-  height: 32px;
+  height: 30px;
   margin: 0;
-  padding: 0 20px;
+  padding: 0 16px;
   border: 0;
   border-radius: 999px;
   color: #fff;
@@ -752,13 +675,13 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .more-button {
-  height: 32px;
-  padding: 0 14px;
+  height: 30px;
+  padding: 0 12px;
   border: 1px solid #e2e8f0;
   border-radius: 999px;
   background: #fff;
   color: #475569;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -904,9 +827,6 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
     gap: 20px;
   }
 
-  .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 640px) {
@@ -943,12 +863,10 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
     margin-top: 28px;
   }
 
+  /* 窄屏保持两列，避免单列时纸张被拉得过大 */
   .grid {
-    grid-template-columns: 1fr;
-  }
-
-  .create-card {
-    width: 62%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
   }
 }
 
@@ -957,7 +875,6 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
     animation: none;
   }
 
-  .paper,
   .paper-actions,
   .create-card,
   .create-card .create-icon,
@@ -965,8 +882,8 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
     transition: none;
   }
 
-  .resume-card:hover .paper,
-  .resume-card:focus-within .paper {
+  .resume-card:hover .cv-paper,
+  .resume-card:focus-within .cv-paper {
     transform: none;
   }
 
