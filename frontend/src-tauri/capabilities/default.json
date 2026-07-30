@@ -1,4 +1,3 @@
-/// Tauri app permissions — simplified default without schema dependency for first boot
 {
   "identifier": "default",
   "description": "Default capability for CV Builder",

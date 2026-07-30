@@ -365,15 +365,7 @@ function normalizeSection(section: IResumeSection, options: INormalizeOptions): 
  * 页面
  * ============================================================ */
 
-const PAGE_SIZES: Record<string, { widthMm: number; heightMm: number }> = {
-  a4: { widthMm: 210, heightMm: 297 },
-  letter: { widthMm: 215.9, heightMm: 279.4 },
-};
-
 function buildPage(config: ITemplateConfigV2, data: IResumeData): IRenderPage {
-  const format = data.metadata?.page?.format || config.page?.format || 'a4';
-  const size = PAGE_SIZES[format] || PAGE_SIZES.a4;
-
   // 简历侧只存了一个统一 margin 数字，模板侧存了四向 margin。
   // 简历侧有值时按四向统一覆盖，保证用户在编辑器里调页边距对所有模板生效。
   const resumeMargin = data.metadata?.page?.margin;
@@ -383,7 +375,7 @@ function buildPage(config: ITemplateConfigV2, data: IResumeData): IRenderPage {
       ? { top: resumeMargin, right: resumeMargin, bottom: resumeMargin, left: resumeMargin }
       : { ...base };
 
-  return { format, margin, widthMm: size.widthMm, heightMm: size.heightMm };
+  return { format: 'a4', margin, widthMm: 210, heightMm: 297 };
 }
 
 /* ============================================================

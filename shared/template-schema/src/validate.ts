@@ -227,8 +227,8 @@ function validatePage(page: unknown, errors: string[]): void {
     errors.push('page 必须是对象');
     return;
   }
-  if (page.format !== 'a4' && page.format !== 'letter') {
-    errors.push("page.format 必须是 'a4' 或 'letter'");
+  if (page.format !== 'a4') {
+    errors.push("page.format 必须是 'a4'");
   }
   if (!isPlainObject(page.margin)) {
     errors.push('page.margin 必须是对象');

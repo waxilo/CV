@@ -603,11 +603,13 @@ describe('renderTemplate', () => {
     expect(doc.errors).toHaveLength(0);
   });
 
-  it('页面尺寸随 page.format 变化', () => {
-    const cfg = normalizeTemplateConfig(getBuiltinTemplate('modern')?.config);
-    cfg.page.format = 'letter';
+  it('页面尺寸始终固定为 A4', () => {
+    const cfg = normalizeTemplateConfig({
+      ...getBuiltinTemplate('modern')?.config,
+      page: { ...getBuiltinTemplate('modern')?.config.page, format: 'letter' },
+    });
     const result = renderTemplate(cfg, data);
-    expect(result.context.page.widthMm).toBeCloseTo(215.9);
+    expect(result.context.page).toMatchObject({ format: 'a4', widthMm: 210, heightMm: 297 });
   });
 
   it('简历侧页边距覆写模板设置', () => {

@@ -132,13 +132,12 @@ export interface IResumeMetadata {
   templateVars?: Record<string, string | number | boolean>;
   theme: IResumeTheme;
   /**
-   * 用户对页面设置的覆写。整体与各字段都可缺省，缺省表示跟随模板的 page 配置 ——
-   * 否则模板声明的纸张与页边距永远不会生效。
+   * 用户对页面边距的覆写；纸张规格始终为 A4。
    */
   page?: {
     /** 毫米，四向统一 */
     margin?: number;
-    format?: 'a4' | 'letter';
+    format?: 'a4';
   };
 }
 

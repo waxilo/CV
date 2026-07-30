@@ -68,9 +68,9 @@ export const DEFAULT_PAGE_MARGIN: IPageMargin = { top: 16, right: 16, bottom: 16
 
 export function createDefaultPage(overrides: Partial<ITemplatePage> = {}): ITemplatePage {
   return {
-    format: overrides.format === 'letter' ? 'letter' : 'a4',
+    format: 'a4',
     margin: { ...DEFAULT_PAGE_MARGIN, ...(overrides.margin || {}) },
-    paged: overrides.paged ?? true,
+    paged: true,
   };
 }
 

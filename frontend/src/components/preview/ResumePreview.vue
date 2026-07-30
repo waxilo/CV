@@ -5,7 +5,7 @@ import type { ITemplateConfig } from '/@/types/template';
 import { normalizeTemplateConfig } from '/@/features/template-renderer';
 import { getBuiltinTemplate } from '@cv/template-schema';
 import { useTemplateStore } from '/@/stores/template';
-import SecureResumeFrame from './SecureResumeFrame.vue';
+import PaperThumb from './PaperThumb.vue';
 
 const props = defineProps<{
   data: IResumeData;
@@ -62,13 +62,20 @@ watch([templateId, () => props.config], resolveConfig);
 
 <template>
   <div class="resume-preview">
-    <SecureResumeFrame v-if="resolvedConfig" :data="data" :config="resolvedConfig" />
+    <PaperThumb
+      v-if="resolvedConfig"
+      :data="data"
+      :config="resolvedConfig"
+      :fallback-scale="0.72"
+      show-all-pages
+      page-layout="vertical"
+    />
   </div>
 </template>
 
 <style scoped lang="scss">
 .resume-preview {
-  display: flex;
-  justify-content: center;
+  width: min(100%, 760px);
+  margin: 0 auto;
 }
 </style>

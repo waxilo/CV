@@ -9,30 +9,117 @@ const props = withDefaults(
     data: IResumeData;
     config: ITemplateConfig | unknown;
     scale?: number;
+    /** 翻页预览时，指定当前展示的 A4 页索引（从 0 开始） */
+    pageIndex?: number;
+    /** 是否裁切为单页高度（翻页模式） */
+    clipToPage?: boolean;
   }>(),
-  { scale: 1 }
+  { scale: 1, pageIndex: 0, clipToPage: false }
 );
 
 const emit = defineEmits<{
   (e: 'errors', value: string[]): void;
+  (e: 'page-count', value: number): void;
 }>();
 
+const A4_HEIGHT_PX = (297 * 96) / 25.4;
+const PX_PER_MM = 96 / 25.4;
+
 const iframeRef = ref<HTMLIFrameElement | null>(null);
+const pageCount = ref(1);
+const isMeasuring = ref(false);
 
 const result = computed(() => renderTemplate(props.config, props.data));
 const srcdoc = computed(() => resultToDocument(result.value));
+const margins = computed(() => result.value.context.page.margin);
+const pageContentHeightMm = computed(() =>
+  Math.max(1, 297 - margins.value.top - margins.value.bottom)
+);
+const pageMarginBackground = computed(() => {
+  const primaryColorValue =
+    result.value.context.vars.primaryColor || result.value.config.primaryColor || '#2563eb';
+  const primaryColor =
+    typeof primaryColorValue === 'string' ? primaryColorValue : String(primaryColorValue);
+  if (result.value.config.layout === 'sidebar-left') {
+    return `linear-gradient(to right, ${primaryColor} 0 33%, #fff 33% 100%)`;
+  }
+  if (result.value.config.layout === 'sidebar-right') {
+    return `linear-gradient(to right, #fff 0 67%, ${primaryColor} 67% 100%)`;
+  }
+  return '#fff';
+});
 
-/** 页面实际尺寸由模板的 page 配置决定，不再硬编码 A4 */
+/** 测量时临时拉高 iframe，避免 flex 布局把内容高度锁死在一页 */
 const pageSize = computed(() => ({
-  width: `${result.value.context.page.widthMm}mm`,
-  minHeight: `${result.value.context.page.heightMm}mm`,
+  width: '210mm',
+  height: props.clipToPage && !isMeasuring.value ? '297mm' : `${pageCount.value * 297}mm`,
 }));
+const iframeHeight = computed(() =>
+  isMeasuring.value ? '5000mm' : `${pageCount.value * 297}mm`
+);
+
+function setPageCount(next: number): void {
+  const nextPageCount = Math.max(1, Math.floor(next || 1));
+  if (nextPageCount === pageCount.value) return;
+  pageCount.value = nextPageCount;
+  emit('page-count', nextPageCount);
+}
+
+/** flex 模板里父级常被锁在一页高，scrollHeight 不可靠，改量内容真实底部 */
+function measureContentHeightPx(root: HTMLElement): number {
+  const rootRect = root.getBoundingClientRect();
+  let maxBottom = rootRect.bottom;
+  const nodes = root.querySelectorAll('*');
+  for (let i = 0; i < nodes.length; i += 1) {
+    const rect = nodes[i].getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) continue;
+    maxBottom = Math.max(maxBottom, rect.bottom);
+  }
+  return Math.max(
+    root.scrollHeight,
+    root.offsetHeight,
+    maxBottom - rootRect.top,
+    A4_HEIGHT_PX
+  );
+}
+
+function measurePagesFromIframe(): void {
+  const iframe = iframeRef.value;
+  const doc = iframe?.contentDocument;
+  const root = doc?.querySelector('.cv-root') as HTMLElement | null;
+  if (!iframe || !doc || !root) return;
+
+  isMeasuring.value = true;
+  iframe.style.height = '5000mm';
+  root.style.height = 'auto';
+  root.style.minHeight = '297mm';
+  root.style.overflow = 'visible';
+
+  const contentHeightPx = measureContentHeightPx(root);
+  const verticalMarginsPx = (margins.value.top + margins.value.bottom) * PX_PER_MM;
+  const contentAreaPx = pageContentHeightMm.value * PX_PER_MM;
+  const usedContentPx = Math.max(contentAreaPx, contentHeightPx - verticalMarginsPx);
+  const nextPageCount = Math.max(1, Math.ceil((usedContentPx - 1) / contentAreaPx));
+  setPageCount(nextPageCount);
+  isMeasuring.value = false;
+}
+
+function scheduleMeasure(): void {
+  requestAnimationFrame(() => {
+    measurePagesFromIframe();
+    setTimeout(measurePagesFromIframe, 80);
+    setTimeout(measurePagesFromIframe, 250);
+    setTimeout(measurePagesFromIframe, 600);
+  });
+}
 
 watch(
   srcdoc,
   () => {
-    // 部分浏览器在仅样式变化时不会重新解析 srcdoc，这里强制赋值
+    pageCount.value = 1;
+    emit('page-count', 1);
     if (iframeRef.value) iframeRef.value.srcdoc = srcdoc.value;
+    scheduleMeasure();
   },
   { flush: 'post' }
 );
@@ -42,25 +129,71 @@ watch(
   (errors) => emit('errors', errors),
   { immediate: true, deep: true }
 );
+
+function handleIframeLoad(): void {
+  scheduleMeasure();
+}
 </script>
 
 <template>
   <div
     class="secure-preview"
-    :style="{ width: pageSize.width, transform: `scale(${scale})`, transformOrigin: 'top center' }"
+    :class="{ clipped: clipToPage }"
+    :style="{
+      width: pageSize.width,
+      height: pageSize.height,
+      transform: `scale(${scale})`,
+      transformOrigin: 'top center',
+      '--preview-margin-top': `${margins.top}mm`,
+      '--preview-margin-bottom': `${margins.bottom}mm`,
+      '--preview-page-background': pageMarginBackground,
+    }"
   >
     <iframe
       ref="iframeRef"
       class="frame"
       title="resume-preview"
-      sandbox=""
-      :style="{ width: pageSize.width, minHeight: pageSize.minHeight }"
+      sandbox="allow-same-origin"
+      :style="{
+        width: pageSize.width,
+        height: iframeHeight,
+        transform: clipToPage
+          ? `translateY(-${pageIndex * pageContentHeightMm}mm)`
+          : undefined,
+      }"
       :srcdoc="srcdoc"
+      @load="handleIframeLoad"
     />
   </div>
 </template>
 
 <style scoped lang="scss">
+.secure-preview.clipped {
+  position: relative;
+  overflow: hidden;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    background: var(--preview-page-background);
+    pointer-events: none;
+  }
+
+  &::before {
+    top: 0;
+    height: var(--preview-margin-top);
+  }
+
+  &::after {
+    bottom: 0;
+    height: var(--preview-margin-bottom);
+  }
+}
+
 .frame {
   border: none;
   background: #fff;

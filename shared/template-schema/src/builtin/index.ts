@@ -169,7 +169,8 @@ const MODERN_CSS = `
 .cv {
   display: flex;
   align-items: stretch;
-  min-height: 100%;
+  min-height: 297mm;
+  height: auto;
   font-family: var(--tpl-font-family), 'PingFang SC', sans-serif;
   font-size: var(--tpl-font-size);
   line-height: var(--tpl-line-height);

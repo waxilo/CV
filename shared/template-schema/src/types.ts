@@ -153,7 +153,7 @@ export interface ITemplateVariable {
   unit?: string;
 }
 
-export type TPageFormat = 'a4' | 'letter';
+export type TPageFormat = 'a4';
 
 export interface IPageMargin {
   top: number;
@@ -166,7 +166,7 @@ export interface ITemplatePage {
   format: TPageFormat;
   /** 毫米 */
   margin: IPageMargin;
-  /** 是否输出分页辅助样式 */
+  /** 兼容旧配置；渲染时始终启用自动分页 */
   paged: boolean;
 }
 

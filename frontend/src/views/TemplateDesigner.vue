@@ -11,7 +11,6 @@ import {
   BUILTIN_TEMPLATES,
   getBuiltinTemplate,
   type ITemplateConfig,
-  type TPageFormat,
   type TTemplateLayout,
 } from '/@/types/template';
 import { useTemplateStore } from '/@/stores/template';
@@ -25,7 +24,7 @@ import { createSampleResumeData } from '/@/features/template-renderer/sampleData
 import CodeEditor from '/@/components/template-designer/CodeEditor.vue';
 import VariableTree from '/@/components/template-designer/VariableTree.vue';
 import VariableSchemaEditor from '/@/components/template-designer/VariableSchemaEditor.vue';
-import SecureResumeFrame from '/@/components/preview/SecureResumeFrame.vue';
+import PaperThumb from '/@/components/preview/PaperThumb.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -40,7 +39,6 @@ const isBuiltinSource = ref(false);
 const sampleData = createSampleResumeData();
 
 const activeTab = ref<'html' | 'css' | 'vars' | 'page'>('html');
-const previewScale = ref(0.62);
 
 /**
  * 语法示例文本。
@@ -150,12 +148,6 @@ function updateSource(key: 'html' | 'css', value: string) {
   applyConfig(next);
 }
 
-function updatePage(patch: Partial<ITemplateConfig['page']>) {
-  const next = cloneConfig(config.value);
-  next.page = { ...next.page, ...patch };
-  applyConfig(next);
-}
-
 function updatePageMargin(side: 'top' | 'right' | 'bottom' | 'left', value: number) {
   const next = cloneConfig(config.value);
   next.page = { ...next.page, margin: { ...next.page.margin, [side]: value } };
@@ -190,6 +182,7 @@ async function load() {
     const builtin = getBuiltinTemplate(preset) || getBuiltinTemplate('minimal');
     const cfg = normalizeTemplateConfig(cloneConfig(builtin?.config));
     cfg.meta = { ...cfg.meta, title: '我的模板', description: '' };
+    cfg.page = { ...cfg.page, format: 'a4' };
     config.value = cfg;
 
     name.value = '我的模板';
@@ -219,6 +212,7 @@ async function load() {
     loaded = upgradeBlocksToHtml(loaded);
     upgradedFromBlocks = true;
   }
+  loaded.page = { ...loaded.page, format: 'a4' };
   config.value = loaded;
   isDirty.value = upgradedFromBlocks;
   undoStack.value = [];
@@ -404,19 +398,6 @@ watch(
 
           <el-tab-pane label="页面" name="page">
             <el-form label-position="top" size="small" class="page-form">
-              <el-form-item label="纸张">
-                <el-radio-group
-                  :model-value="config.page.format"
-                  @update:model-value="
-                    (v: string | number | boolean | undefined) =>
-                      updatePage({ format: v as TPageFormat })
-                  "
-                >
-                  <el-radio-button value="a4">A4</el-radio-button>
-                  <el-radio-button value="letter">Letter</el-radio-button>
-                </el-radio-group>
-              </el-form-item>
-
               <el-form-item label="页边距（毫米，统一设置）">
                 <el-slider
                   :model-value="config.page.margin.top"
@@ -445,18 +426,6 @@ watch(
                 </el-form-item>
               </div>
 
-              <el-form-item label="分页辅助样式">
-                <el-switch
-                  :model-value="config.page.paged"
-                  @update:model-value="
-                    (v: boolean | string | number) => updatePage({ paged: Boolean(v) })
-                  "
-                />
-                <span class="inline-hint">
-                  开启后可用 <code>.page-break</code> / <code>.no-break</code> 工具类
-                </span>
-              </el-form-item>
-
               <el-form-item label="模板自述标题">
                 <el-input
                   :model-value="config.meta.title"
@@ -469,19 +438,8 @@ watch(
       </section>
 
       <section class="preview-pane">
-        <div class="pane-title no-print">
-          <span>实时预览（隔离渲染）</span>
-          <el-slider
-            v-model="previewScale"
-            :min="0.3"
-            :max="1"
-            :step="0.02"
-            class="scale-slider"
-            size="small"
-          />
-        </div>
         <div class="preview-wrap">
-          <SecureResumeFrame :data="sampleData" :config="config" :scale="previewScale" />
+          <PaperThumb :data="sampleData" :config="config" show-all-pages />
         </div>
       </section>
     </div>
@@ -570,16 +528,6 @@ watch(
   }
 }
 
-.inline-hint {
-  margin-left: 12px;
-  font-size: 12px;
-  color: var(--cv-muted);
-
-  code {
-    font-family: ui-monospace, Menlo, Consolas, monospace;
-  }
-}
-
 .page-form {
   max-width: 420px;
 }
@@ -592,33 +540,22 @@ watch(
 
 .preview-pane {
   overflow: auto;
-  padding: 12px 16px 40px;
-}
-
-.pane-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  font-size: 13px;
-  color: var(--cv-muted);
-  margin: 4px 0 10px;
-}
-
-.scale-slider {
-  width: 120px;
-  flex-shrink: 0;
+  padding: 12px 16px 24px;
 }
 
 .preview-wrap {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  min-height: calc(100% - 28px);
-  padding: 12px;
-  background: #dbe3ee;
-  border-radius: 12px;
-  overflow: auto;
+  min-height: 100%;
+  width: 100%;
+  overflow: visible;
+
+  :deep(.cv-paper.stacked) {
+    gap: 18px;
+  }
+
+  :deep(.cv-page-slice) {
+    border-radius: 0;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+  }
 }
 
 @media (max-width: 1440px) {

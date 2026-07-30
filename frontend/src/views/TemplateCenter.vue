@@ -8,7 +8,7 @@ import { useUserStore } from '/@/stores/user';
 import { createSampleResumeData } from '/@/features/template-renderer/sampleData';
 import { migrateTemplateConfig } from '/@/features/template-renderer';
 import PaperThumb from '/@/components/preview/PaperThumb.vue';
-import type { ITemplate } from '/@/types/template';
+import type { ITemplate, ITemplateConfig } from '/@/types/template';
 
 interface ITemplateCategory {
   label: string;
@@ -23,7 +23,13 @@ const sampleData = createSampleResumeData();
 const creating = ref(false);
 const activeCategory = ref('全部');
 const previewTemplate = ref<ITemplate | null>(null);
+const previewConfig = ref<ITemplateConfig | null>(null);
 const isPreviewVisible = ref(false);
+const previewPageIndex = ref(0);
+const previewPageCount = ref(1);
+let previewWheelLockedUntil = 0;
+const FAVORITE_STORAGE_KEY = 'cv_favorite_template_ids';
+const favoriteTemplateIds = ref<Set<string>>(loadFavoriteTemplateIds());
 
 const categories: ITemplateCategory[] = [
   { label: '全部', keywords: [] },
@@ -80,6 +86,9 @@ async function handleDelete(tpl: ITemplate) {
     return;
   }
   await templateStore.removeTemplate(tpl.template_id);
+  isPreviewVisible.value = false;
+  previewTemplate.value = null;
+  previewConfig.value = null;
   ElMessage.success('已删除');
 }
 
@@ -135,11 +144,65 @@ function getTemplateDescription(tpl: ITemplate): string {
 
 function openPreview(tpl: ITemplate): void {
   previewTemplate.value = tpl;
+  previewConfig.value = migrateTemplateConfig(tpl.config);
+  previewPageIndex.value = 0;
+  previewPageCount.value = 1;
   isPreviewVisible.value = true;
+}
+
+function handlePreviewPageCount(count: number): void {
+  previewPageCount.value = Math.max(1, count);
+  if (previewPageIndex.value > previewPageCount.value - 1) {
+    previewPageIndex.value = previewPageCount.value - 1;
+  }
+}
+
+function goPreviewPage(delta: number): void {
+  const next = previewPageIndex.value + delta;
+  if (next < 0 || next >= previewPageCount.value) return;
+  previewPageIndex.value = next;
+}
+
+function handlePreviewWheel(event: WheelEvent): void {
+  if (previewPageCount.value <= 1) return;
+  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+  if (Math.abs(delta) < 20) return;
+  event.preventDefault();
+  const now = Date.now();
+  if (now < previewWheelLockedUntil) return;
+  previewWheelLockedUntil = now + 280;
+  goPreviewPage(delta > 0 ? 1 : -1);
 }
 
 function selectCategory(category: string): void {
   activeCategory.value = category;
+}
+
+function loadFavoriteTemplateIds(): Set<string> {
+  try {
+    const storedValue = localStorage.getItem(FAVORITE_STORAGE_KEY);
+    const templateIds: unknown = storedValue ? JSON.parse(storedValue) : [];
+    return new Set(Array.isArray(templateIds) ? templateIds.filter((id): id is string => typeof id === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function isFavorite(tpl: ITemplate): boolean {
+  return favoriteTemplateIds.value.has(tpl.template_id);
+}
+
+function toggleFavorite(tpl: ITemplate): void {
+  const nextTemplateIds = new Set(favoriteTemplateIds.value);
+  const willFavorite = !nextTemplateIds.has(tpl.template_id);
+  if (willFavorite) {
+    nextTemplateIds.add(tpl.template_id);
+  } else {
+    nextTemplateIds.delete(tpl.template_id);
+  }
+  favoriteTemplateIds.value = nextTemplateIds;
+  localStorage.setItem(FAVORITE_STORAGE_KEY, JSON.stringify([...nextTemplateIds]));
+  ElMessage.success(willFavorite ? '已收藏模板' : '已取消收藏');
 }
 </script>
 
@@ -219,51 +282,12 @@ function selectCategory(category: string): void {
             :key="tpl.template_id"
             class="template-card"
             :style="{ '--template-index': index }"
+            tabindex="0"
             @click="openPreview(tpl)"
+            @keydown.enter="openPreview(tpl)"
           >
             <div class="card-preview">
-              <PaperThumb :data="sampleData" :config="migrateTemplateConfig(tpl.config)">
-                <span v-if="tpl.is_builtin" class="official-badge">官方</span>
-                <div class="hover-layer" @click.stop>
-                  <el-button class="use-button" :loading="creating" @click.stop="useTemplate(tpl)">
-                    立即使用
-                  </el-button>
-                  <button class="preview-button" type="button" @click.stop="openPreview(tpl)">
-                    <el-icon><View /></el-icon>
-                    在线预览
-                  </button>
-                </div>
-              </PaperThumb>
-            </div>
-
-            <div class="card-meta">
-              <div class="meta-head">
-                <h3>{{ tpl.name }}</h3>
-                <el-dropdown trigger="click" placement="bottom-end">
-                  <button class="more-button" type="button" aria-label="模板更多操作" @click.stop>
-                    <el-icon><MoreFilled /></el-icon>
-                  </button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item @click="goEdit(tpl)">
-                        <el-icon><EditPen /></el-icon>
-                        {{ tpl.is_builtin ? '定制模板' : '编辑模板' }}
-                      </el-dropdown-item>
-                      <el-dropdown-item @click="handleClone(tpl)">
-                        <el-icon><CopyDocument /></el-icon>
-                        复制模板
-                      </el-dropdown-item>
-                      <el-dropdown-item v-if="!tpl.is_builtin" divided @click="handleDelete(tpl)">
-                        <el-icon><Delete /></el-icon>
-                        删除模板
-                      </el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </div>
-              <div class="tags">
-                <span v-for="tag in getTemplateTags(tpl)" :key="tag">{{ tag }}</span>
-              </div>
+              <PaperThumb :data="sampleData" :config="migrateTemplateConfig(tpl.config)" />
             </div>
           </article>
 
@@ -280,19 +304,47 @@ function selectCategory(category: string): void {
     <el-dialog
       v-model="isPreviewVisible"
       class="preview-dialog"
-      width="min(1040px, calc(100vw - 32px))"
+      width="min(780px, calc(100vw - 32px), calc((100vh - 48px) * 210 / 297 / 0.55))"
       :show-close="false"
+      align-center
       destroy-on-close
     >
       <template v-if="previewTemplate">
         <div class="modal-preview">
-          <div class="modal-preview-stage">
+          <div class="modal-preview-stage" @wheel="handlePreviewWheel">
             <div class="modal-paper">
               <PaperThumb
+                v-if="previewConfig"
                 :data="sampleData"
-                :config="migrateTemplateConfig(previewTemplate.config)"
-                :fallback-scale="0.52"
+                :config="previewConfig"
+                :fallback-scale="0.54"
+                show-all-pages
+                page-layout="flip"
+                :page-index="previewPageIndex"
+                @page-count="handlePreviewPageCount"
               />
+            </div>
+
+            <button
+              v-if="previewPageIndex > 0"
+              class="page-nav prev"
+              type="button"
+              aria-label="上一页"
+              @click="goPreviewPage(-1)"
+            >
+              <el-icon><ArrowLeft /></el-icon>
+            </button>
+            <button
+              v-if="previewPageIndex < previewPageCount - 1"
+              class="page-nav next"
+              type="button"
+              aria-label="下一页"
+              @click="goPreviewPage(1)"
+            >
+              <el-icon><ArrowRight /></el-icon>
+            </button>
+            <div v-if="previewPageCount > 1" class="page-indicator">
+              {{ previewPageIndex + 1 }} / {{ previewPageCount }}
             </div>
           </div>
 
@@ -336,9 +388,33 @@ function selectCategory(category: string): void {
               立即使用模板
               <el-icon><ArrowRight /></el-icon>
             </el-button>
-            <button class="customize-link" type="button" @click="goEdit(previewTemplate)">
-              {{ previewTemplate.is_builtin ? '基于此模板进行定制' : '编辑这个模板' }}
-            </button>
+
+            <div class="modal-secondary-actions">
+              <button type="button" @click="toggleFavorite(previewTemplate)">
+                <el-icon>
+                  <StarFilled v-if="isFavorite(previewTemplate)" />
+                  <Star v-else />
+                </el-icon>
+                {{ isFavorite(previewTemplate) ? '取消收藏' : '收藏' }}
+              </button>
+              <button type="button" @click="goEdit(previewTemplate)">
+                <el-icon><EditPen /></el-icon>
+                {{ previewTemplate.is_builtin ? '定制' : '编辑' }}
+              </button>
+              <button type="button" @click="handleClone(previewTemplate)">
+                <el-icon><CopyDocument /></el-icon>
+                复制
+              </button>
+              <button
+                v-if="!previewTemplate.is_builtin"
+                type="button"
+                class="danger"
+                @click="handleDelete(previewTemplate)"
+              >
+                <el-icon><Delete /></el-icon>
+                删除
+              </button>
+            </div>
           </aside>
         </div>
       </template>
@@ -491,7 +567,7 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .content {
-  max-width: 1200px;
+  max-width: 1240px;
   margin: 0 auto;
   padding: 28px 24px 80px;
 }
@@ -570,181 +646,37 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 
-/* 桌面 3~4 列，缩略图尽量多露出来 */
+/* 卡片只展示纸张预览，名称与操作放到点击后的预览页 */
 .template-grid {
   min-height: 280px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: start;
   gap: 24px;
 }
 
 .template-card {
   min-width: 0;
-  padding: 14px 14px 4px;
-  border-radius: 12px;
-  background: #fff;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  outline: none;
+  background: transparent;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 6px 18px rgba(15, 23, 42, 0.05);
   animation: card-enter 0.48s both;
   animation-delay: calc(var(--template-index, 0) * 55ms);
-  transition: box-shadow 250ms $paper-ease;
-
-  &:hover,
-  &:focus-within {
-    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06), 0 16px 36px rgba(15, 23, 42, 0.12);
-  }
 }
 
 .card-preview {
   min-width: 0;
+  border-radius: 4px;
 }
 
-/* 纸张轻微浮起，阴影同步增强 */
-.template-card:hover .cv-paper,
-.template-card:focus-within .cv-paper {
-  transform: translateY(-6px);
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
-}
-
-.official-badge {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  color: #1d4ed8;
-  background: rgba(239, 246, 255, 0.92);
-  backdrop-filter: blur(8px);
-  font-size: 10px;
-  font-weight: 700;
-}
-
-/* 半透明操作层：默认隐藏，hover / 键盘聚焦时淡入 */
-.hover-layer {
-  position: absolute;
-  inset: 0;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: rgba(15, 23, 42, 0.38);
-  backdrop-filter: blur(2px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 250ms $paper-ease;
-
-  > * {
-    transform: translateY(6px);
-    transition: transform 250ms $paper-ease;
-  }
-}
-
-.template-card:hover .hover-layer,
-.template-card:focus-within .hover-layer {
-  opacity: 1;
-  pointer-events: auto;
-
-  > * {
-    transform: translateY(0);
-  }
-}
-
-:deep(.use-button) {
-  width: 132px;
-  height: 34px;
-  margin: 0;
-  border: 0;
-  border-radius: 999px;
-  color: #fff;
-  background: #2563eb;
-  font-weight: 650;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.24);
-
-  &:hover {
-    color: #fff;
-    background: #1d4ed8;
-  }
-}
-
-.preview-button {
-  width: 132px;
-  height: 34px;
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-
-  &:hover {
-    background: #fff;
-  }
-}
-
-.card-meta {
-  min-width: 0;
-  padding: 14px 2px 12px;
-}
-
-.meta-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-
-  h3 {
-    min-width: 0;
-    overflow: hidden;
-    color: #0f172a;
-    font-size: 14px;
-    font-weight: 650;
-    line-height: 1.4;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.more-button {
-  width: 26px;
-  height: 26px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: #94a3b8;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  cursor: pointer;
-  transition: color 0.2s ease, background-color 0.2s ease;
-
-  &:hover {
-    color: #0f172a;
-    background: #f1f5f9;
-  }
-}
-
-.tags {
-  margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-
-  span {
-    padding: 3px 8px;
-    border-radius: 6px;
-    color: #64748b;
-    background: #f1f5f9;
-    font-size: 11px;
-  }
+/* 像拿起纸张一样轻微上浮，不缩放、不遮挡真实内容 */
+.template-card:hover :deep(.cv-paper),
+.template-card:focus-visible :deep(.cv-paper) {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.14);
 }
 
 .modal-tags {
@@ -810,34 +742,93 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .modal-preview {
-  min-height: 690px;
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.8fr);
+  grid-template-columns: 55% 45%;
 }
 
 .modal-preview-stage {
   min-width: 0;
-  padding: 42px;
+  padding: 0;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 12%, rgba(219, 234, 254, 0.5), transparent 55%),
-    #f8fafc;
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-}
+  align-items: stretch;
 
-.modal-paper {
-  width: 413px;
-  max-width: 100%;
-
-  :deep(.cv-paper) {
-    box-shadow: 0 22px 55px rgba(15, 23, 42, 0.18);
+  &:hover,
+  &:focus-within {
+    .page-nav,
+    .page-indicator {
+      opacity: 1;
+      pointer-events: auto;
+    }
   }
 }
 
+.modal-paper {
+  width: 100%;
+  aspect-ratio: 210 / 297;
+  overflow: hidden;
+
+  :deep(.cv-paper) {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+.page-nav {
+  width: 36px;
+  height: 36px;
+  position: absolute;
+  top: 50%;
+  z-index: 5;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #334155;
+  display: grid;
+  place-items: center;
+  transform: translateY(-50%);
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+
+  &:hover {
+    color: #2563eb;
+    border-color: #bfdbfe;
+  }
+
+  &.prev {
+    left: 10px;
+  }
+
+  &.next {
+    right: 10px;
+  }
+}
+
+.page-indicator {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 5;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
 .modal-details {
-  padding: 48px 38px 38px;
+  padding: 42px 28px 28px;
   position: relative;
   background: #fff;
 
@@ -851,7 +842,7 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
   h2 {
     margin-top: 10px;
     color: #0f172a;
-    font-size: 28px;
+    font-size: 24px;
     letter-spacing: -0.04em;
   }
 }
@@ -877,14 +868,14 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .detail-description {
-  margin: 14px 0 28px;
+  margin: 12px 0 18px;
   color: #64748b;
   font-size: 13px;
   line-height: 1.7;
 }
 
 .detail-block {
-  padding: 16px 0;
+  padding: 11px 0;
   border-top: 1px solid #f1f5f9;
   display: flex;
   flex-direction: column;
@@ -904,7 +895,7 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .recommendation {
-  padding: 16px 0;
+  padding: 11px 0;
   border-top: 1px solid #f1f5f9;
   display: flex;
   align-items: center;
@@ -923,14 +914,10 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
   font-size: 14px;
 }
 
-.modal-tags {
-  margin-top: 6px;
-}
-
 :deep(.modal-use-button) {
   width: 100%;
-  height: 44px;
-  margin: 30px 0 0;
+  height: 40px;
+  margin: 20px 0 0;
   border: 0;
   border-radius: 10px;
   color: #fff;
@@ -945,17 +932,37 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 
-.customize-link {
-  width: 100%;
+.modal-secondary-actions {
   margin-top: 14px;
-  border: 0;
-  background: transparent;
-  color: #64748b;
-  font-size: 12px;
-  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 
-  &:hover {
-    color: #2563eb;
+  button {
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+
+    &:hover {
+      border-color: #bfdbfe;
+      color: #2563eb;
+      background: #f8fbff;
+    }
+
+    &.danger:hover {
+      border-color: #fecaca;
+      color: #dc2626;
+      background: #fef2f2;
+    }
   }
 }
 
@@ -971,12 +978,16 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (max-width: 1024px) {
+  .template-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   .modal-preview {
-    grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+    grid-template-columns: 55% 45%;
   }
 
   .modal-preview-stage {
-    padding: 34px 20px;
+    padding: 0;
   }
 }
 
@@ -1017,27 +1028,28 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
     }
   }
 
-  /* 窄屏两列，纸张不会被拉得过大 */
+  /* 手机单列，确保 A4 页面完整展示且不裁剪 */
   .template-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    grid-template-columns: 1fr;
+    gap: 30px;
   }
 
   .template-card {
-    padding: 10px 10px 2px;
+    padding: 0;
   }
 
   .modal-preview {
     display: block;
+    height: auto;
   }
 
   .modal-preview-stage {
-    height: 430px;
-    padding: 26px 12px;
+    height: auto;
+    padding: 0;
   }
 
   .modal-paper {
-    width: 262px;
+    width: 100%;
   }
 
   .modal-details {
@@ -1051,14 +1063,12 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .template-card,
-  .hover-layer,
-  .hover-layer > *,
   :deep(.el-button) {
     transition: none;
   }
 
-  .template-card:hover .cv-paper,
-  .template-card:focus-within .cv-paper {
+  .template-card:hover :deep(.cv-paper),
+  .template-card:focus-visible :deep(.cv-paper) {
     transform: none;
   }
 }
