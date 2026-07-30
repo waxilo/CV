@@ -37,6 +37,7 @@ const scope = ref<TTreeScope>('current');
  * 当成插值语法解析（内层 }} 提前闭合插值），导致 SFC 编译失败。
  */
 const SYNTAX_SAMPLE = {
+  interp: '{{path}}',
   raw: '{{& fieldSafe}}',
   each: '{{#each}}',
 } as const;
@@ -81,15 +82,22 @@ watch(scope, () => {
 async function copy(text: string) {
   const ok = await copyText(text);
   if (ok) {
-    ElMessage.success({ message: `已复制 ${text}`, duration: 1200 });
+    // each/with 片段是多行的，toast 里只展示单行摘要，完整内容已经进剪贴板了
+    const summary = text.includes('\n') ? text.split('\n')[0] + '…' : text;
+    ElMessage.success({ message: `已复制 ${summary}`, duration: 1200 });
     return;
   }
   ElMessage.error('复制失败，请手动选中文本复制');
 }
 
-/** 点击节点复制变量名（数组节点复制的是列表本身的路径） */
+/**
+ * 点击节点复制变量名。
+ *
+ * 直接复制 `{{path}}` 而不是裸路径：粘贴到模板里就能立即渲染，不用自己补括号；
+ * 数组/对象节点复制的是 each/with 片段，值字段复制 `{{path}}`（Safe 字段是 `{{& path}}`）。
+ */
 function onNodeClick(data: IVarNode) {
-  copy(data.path);
+  copy(data.snippet);
 }
 </script>
 
@@ -109,8 +117,9 @@ function onNodeClick(data: IVarNode) {
           class="search"
         />
         <p class="hint">
-          上行是字段含义，下行是模板里要写的变量名。点击即复制变量名，粘贴到 HTML / CSS 里用；
-          <code>Safe</code> 结尾的字段要用 <code>{{ SYNTAX_SAMPLE.raw }}</code> 形式输出。
+          上行是字段含义，下行是模板里要写的变量名。点击即复制
+          <code>{{ SYNTAX_SAMPLE.interp }}</code> 形式，直接粘贴到 HTML / CSS 里就能渲染；
+          数组/对象节点复制的是 each/with 片段。
         </p>
         <p class="hint">
           <template v-if="scope === 'current'">
@@ -151,7 +160,7 @@ function onNodeClick(data: IVarNode) {
           :key="v.path"
           type="button"
           class="row"
-          @click="copy(v.path)"
+          @click="copy(v.snippet)"
         >
           <code>{{ v.path }}</code>
           <span>{{ v.label }}</span>
