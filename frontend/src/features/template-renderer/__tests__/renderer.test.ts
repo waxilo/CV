@@ -427,43 +427,45 @@ describe('buildRenderContext', () => {
   });
 
   it('生成姓名首字用于头像占位', () => {
-    expect(ctx.basics.initial).toBe('张');
+    expect(ctx.basics.initial).toBe('陈');
   });
 
   it('按 type 建立模块索引', () => {
     expect(ctx.s.experience?.type).toBe('experience');
-    expect(ctx.s.awards).toBeUndefined();
+    // 示例数据现在补齐了 awards，不再是 undefined
+    expect(ctx.s.awards?.type).toBe('awards');
   });
 
   it('把不同模块的条目归一化为同一组字段', () => {
     const exp = ctx.s.experience?.items[0];
-    expect(exp?.title).toBe('高级前端工程师');
-    expect(exp?.subtitle).toBe('某科技公司');
+    expect(exp?.title).toBe('高级 Java 开发工程师');
+    expect(exp?.subtitle).toBe('某电商科技有限公司');
     expect(exp?.dateRange).toContain('至今');
 
     const edu = ctx.s.education?.items[0];
-    expect(edu?.title).toBe('某大学');
-    expect(edu?.subtitle).toBe('本科 计算机科学');
+    expect(edu?.title).toBe('某理工大学');
+    expect(edu?.subtitle).toBe('本科 计算机科学与技术');
 
     const skill = ctx.s.skills?.items[0];
-    expect(skill?.title).toBe('Vue');
+    expect(skill?.title).toBe('Java');
     // 类型专属字段通过 raw 访问
     expect(skill?.raw.level).toBe(5);
   });
 
   it('summary 识别为自由文本模块', () => {
     expect(ctx.s.summary?.isText).toBe(true);
-    expect(ctx.s.summary?.contentSafe).toContain('互联网研发经验');
+    expect(ctx.s.summary?.contentSafe).toContain('Java 后端开发经验');
   });
 
   it('过滤隐藏的模块与条目', () => {
     const hidden = createSampleResumeData();
+    const skillsCount = hidden.sections[3].items.length;
     hidden.sections[1].visible = false;
     (hidden.sections[3].items[0] as { visible: boolean }).visible = false;
 
     const c = buildRenderContext(hidden, config);
     expect(c.s.experience).toBeUndefined();
-    expect(c.s.skills?.items).toHaveLength(1);
+    expect(c.s.skills?.items).toHaveLength(skillsCount - 1);
   });
 
   it('templateVars 覆写模板声明的默认值', () => {
@@ -535,7 +537,7 @@ describe('renderTemplate', () => {
       expect(result.engine, builtin.id).toBe('html');
       expect(result.errors, builtin.id).toHaveLength(0);
       expect(result.body).toContain('cv-root');
-      expect(result.body).toContain('张三');
+      expect(result.body).toContain('陈昊');
       expect(result.body).toContain('工作经历');
       expect(result.css).toContain('.cv-root');
     }
@@ -575,7 +577,7 @@ describe('renderTemplate', () => {
     for (const layout of ['single-column', 'sidebar-left', 'sidebar-right', 'two-column'] as const) {
       const html = compileTemplateHtml(createDefaultTemplateConfig(layout), data);
       expect(html).toContain('cv-root');
-      expect(html).toContain('张三');
+      expect(html).toContain('陈昊');
       expect(html).toContain('工作经历');
     }
   });
@@ -589,7 +591,7 @@ describe('renderTemplate', () => {
       content: '<div class="legacy">{{basics.name}} / {{#experience}}{{company}}{{/experience}}</div>',
     });
     const html = compileTemplateHtml(cfg, data);
-    expect(html).toContain('某科技公司');
+    expect(html).toContain('某电商科技有限公司');
   });
 
   it('完整文档带 CSP 且不含 script', () => {

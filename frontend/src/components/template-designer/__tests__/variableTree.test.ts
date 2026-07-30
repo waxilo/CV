@@ -67,15 +67,16 @@ describe('buildVariableTree 别名', () => {
 
   it('s 下补齐示例数据里没有的模块类型，并标注出来', () => {
     const s = find(['s']);
-    // 示例数据只有 summary/experience/education/skills/projects
-    const awards = s?.children?.find((n) => n.label === 'awards');
-    expect(awards?.alias).toBe('荣誉奖项');
-    expect(awards?.preview).toContain('暂无');
+    // 示例数据现在覆盖了 9 种真实模块，custom 仍然缺失，靠字典补齐
+    const custom = s?.children?.find((n) => n.label === 'custom');
+    expect(custom?.alias).toBe('自定义模块');
+    expect(custom?.preview).toContain('暂无');
     // 补齐的节点仍然可以展开看字段结构
-    expect(awards?.children?.find((n) => n.label === 'items[]')?.alias).toBe('条目列表');
+    expect(custom?.children?.find((n) => n.label === 'items[]')?.alias).toBe('条目列表');
 
     // 示例里存在的模块不该被标注
     expect(s?.children?.find((n) => n.label === 'experience')?.preview).not.toContain('暂无');
+    expect(s?.children?.find((n) => n.label === 'awards')?.preview).not.toContain('暂无');
   });
 
   it('s.<type> 的子字段复用 sections 的别名，不必为 11 种模块各写一份', () => {
@@ -118,8 +119,10 @@ describe('buildVariableTree 默认范围', () => {
 
   it('只有示例数据里真实存在的模块，不再补齐', () => {
     const labels = current.map((n) => n.label);
-    expect(labels).not.toContain('s.awards');
-    expect(labels).not.toContain('s.certificates');
+    // 示例数据现在覆盖了 9 种模块，custom 是唯一没有示例数据、也不会被补齐的类型
+    expect(labels).not.toContain('s.custom');
+    expect(labels).toContain('s.awards');
+    expect(labels).toContain('s.certificates');
   });
 
   it('顶层模块保留中文别名', () => {
