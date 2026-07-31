@@ -5,6 +5,8 @@ node_modules/
 dist/
 frontend/dist/
 frontend/src-tauri/target/
+# Tauri 构建时由 build.rs 生成，仅供 capabilities 文件的编辑器补全用
+frontend/src-tauri/gen/
 .env
 .env.local
 .dev.vars
