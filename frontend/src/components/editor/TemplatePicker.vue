@@ -29,7 +29,6 @@ function openCenter() {
 <template>
   <div v-loading="templateStore.isLoading" class="template-picker">
     <div class="head">
-      <h3>选择模板</h3>
       <el-button size="small" @click="openCenter">模板中心</el-button>
     </div>
 
@@ -56,14 +55,9 @@ function openCenter() {
 <style scoped lang="scss">
 .head {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   margin-bottom: 12px;
-
-  h3 {
-    font-size: 14px;
-    color: var(--cv-muted);
-  }
 }
 
 .grid {

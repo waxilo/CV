@@ -6,7 +6,6 @@ const resumeStore = useResumeStore();
 
 <template>
   <div v-if="resumeStore.data" class="theme-panel">
-    <h3>主题设置</h3>
     <el-form label-position="top" size="small">
       <el-form-item label="主色">
         <el-color-picker
@@ -57,10 +56,8 @@ const resumeStore = useResumeStore();
 
 <style scoped lang="scss">
 .theme-panel {
-  h3 {
-    font-size: 14px;
+  :deep(.el-form-item__label) {
     color: var(--cv-muted);
-    margin-bottom: 12px;
   }
 }
 </style>

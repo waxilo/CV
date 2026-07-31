@@ -6,7 +6,6 @@ const resumeStore = useResumeStore();
 
 <template>
   <div v-if="resumeStore.data" class="basics-form">
-    <h3>基本信息</h3>
     <el-form label-position="top" size="small">
       <el-form-item label="姓名">
         <el-input
@@ -55,16 +54,6 @@ const resumeStore = useResumeStore();
 </template>
 
 <style scoped lang="scss">
-.basics-form {
-  h3 {
-    font-size: 14px;
-    margin-bottom: 10px;
-    color: var(--cv-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-}
-
 .row {
   display: grid;
   grid-template-columns: 1fr 1fr;

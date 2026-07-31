@@ -12,6 +12,7 @@ import type {
   IResumeData,
   IResumeSection,
   IResumeSummary,
+  TSectionItem,
   TSectionType,
 } from '/@/types/resume';
 
@@ -232,6 +233,19 @@ export const useResumeStore = defineStore('resume', () => {
     markDirty();
   }
 
+  /**
+   * 重排模块内的条目。
+   *
+   * 条目没有 order 字段，渲染顺序就是数组顺序，所以直接整体替换数组。
+   */
+  function reorderItems(sectionId: string, items: TSectionItem[]) {
+    if (!data.value) return;
+    const section = data.value.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    section.items = [...items];
+    markDirty();
+  }
+
   function updateSectionContent(sectionId: string, content: string) {
     if (!data.value) return;
     const section = data.value.sections.find((s) => s.id === sectionId);
@@ -335,6 +349,7 @@ export const useResumeStore = defineStore('resume', () => {
     addItem,
     updateItem,
     removeItem,
+    reorderItems,
     updateSectionContent,
     setTemplate,
     updateTheme,

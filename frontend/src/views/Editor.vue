@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useResumeStore } from '/@/stores/resume';
-import SectionList from '/@/components/editor/SectionList.vue';
+import EditorNav from '/@/components/editor/EditorNav.vue';
 import BasicsForm from '/@/components/editor/BasicsForm.vue';
 import SectionEditor from '/@/components/editor/SectionEditor.vue';
 import TemplatePicker from '/@/components/editor/TemplatePicker.vue';
@@ -14,16 +14,31 @@ const route = useRoute();
 const router = useRouter();
 const resumeStore = useResumeStore();
 
-const activeTab = ref<'content' | 'template' | 'theme'>('content');
-const activeSectionId = ref<string>('');
+const SECTION_PREFIX = 'section:';
+
+/**
+ * 三段式的中间栏展示哪一块，由左侧导航的选中项决定。
+ * 取值：basics / template / theme / `section:<id>`
+ */
+const activeKey = ref<string>('basics');
+
+const activeSectionId = computed(() =>
+  activeKey.value.startsWith(SECTION_PREFIX) ? activeKey.value.slice(SECTION_PREFIX.length) : ''
+);
+
+const activePaneTitle = computed(() => {
+  if (activeKey.value === 'basics') return '基本信息';
+  if (activeKey.value === 'template') return '模板';
+  if (activeKey.value === 'theme') return '主题';
+  const section = resumeStore.sortedSections.find((s) => s.id === activeSectionId.value);
+  return section?.name || '模块';
+});
+
 let autoSaveTimer: ReturnType<typeof setInterval> | null = null;
 
 onMounted(async () => {
   const id = route.params.id as string;
   await resumeStore.loadResume(id);
-  if (resumeStore.sortedSections.length) {
-    activeSectionId.value = resumeStore.sortedSections[0].id;
-  }
 
   autoSaveTimer = setInterval(async () => {
     if (resumeStore.isDirty && !resumeStore.isSaving) {
@@ -36,12 +51,13 @@ onBeforeUnmount(() => {
   if (autoSaveTimer) clearInterval(autoSaveTimer);
 });
 
+/** 当前打开的模块被删除后，中间栏回落到基本信息，避免空白面板 */
 watch(
   () => resumeStore.sortedSections.map((s) => s.id).join(','),
   () => {
-    if (!activeSectionId.value && resumeStore.sortedSections.length) {
-      activeSectionId.value = resumeStore.sortedSections[0].id;
-    }
+    if (!activeSectionId.value) return;
+    const stillExists = resumeStore.sortedSections.some((s) => s.id === activeSectionId.value);
+    if (!stillExists) activeKey.value = 'basics';
   }
 );
 
@@ -60,9 +76,8 @@ function goBack() {
   router.push('/');
 }
 
-function onSelectSection(id: string) {
-  activeSectionId.value = id;
-  activeTab.value = 'content';
+function onSelect(key: string) {
+  activeKey.value = key;
 }
 </script>
 
@@ -89,35 +104,26 @@ function onSelectSection(id: string) {
     </header>
 
     <div class="workspace">
-      <aside class="sidebar no-print">
-        <el-tabs v-model="activeTab" stretch>
-          <el-tab-pane label="内容" name="content" />
-          <el-tab-pane label="模板" name="template" />
-          <el-tab-pane label="主题" name="theme" />
-        </el-tabs>
-
-        <div v-show="activeTab === 'content'" class="pane">
-          <BasicsForm />
-          <SectionList
-            :active-id="activeSectionId"
-            @select="onSelectSection"
-          />
-          <SectionEditor
-            v-if="activeSectionId"
-            :section-id="activeSectionId"
-          />
-        </div>
-
-        <div v-show="activeTab === 'template'" class="pane">
-          <TemplatePicker />
-        </div>
-
-        <div v-show="activeTab === 'theme'" class="pane">
-          <ThemePanel />
-        </div>
+      <!-- 第一段：模块导航 -->
+      <aside class="nav-col no-print">
+        <EditorNav :active-key="activeKey" @select="onSelect" />
       </aside>
 
-      <section class="preview-area">
+      <!-- 第二段：当前模块的内容表单 -->
+      <section class="form-col no-print">
+        <div class="form-head">
+          <h2>{{ activePaneTitle }}</h2>
+        </div>
+        <div class="form-body">
+          <BasicsForm v-if="activeKey === 'basics'" />
+          <TemplatePicker v-else-if="activeKey === 'template'" />
+          <ThemePanel v-else-if="activeKey === 'theme'" />
+          <SectionEditor v-else-if="activeSectionId" :key="activeSectionId" :section-id="activeSectionId" />
+        </div>
+      </section>
+
+      <!-- 第三段：简历预览 -->
+      <section class="preview-col">
         <div class="preview-stage">
           <ResumePreview v-if="resumeStore.data" :data="resumeStore.data" />
         </div>
@@ -156,27 +162,54 @@ function onSelectSection(id: string) {
   width: 220px;
 }
 
+/* 三段式：模块导航 / 模块内容 / 预览 */
 .workspace {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 380px 1fr;
+  grid-template-columns: 232px minmax(320px, 400px) 1fr;
 }
 
-.sidebar {
+.nav-col {
+  min-height: 0;
   border-right: 1px solid var(--cv-border);
-  background: var(--cv-surface);
-  overflow: auto;
-  padding: 0 12px 24px;
+  background: #f8fafc;
 }
 
-.pane {
+.form-col {
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  border-right: 1px solid var(--cv-border);
+  background: var(--cv-surface);
 }
 
-.preview-area {
+.form-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--cv-border);
+
+  h2 {
+    font-size: 15px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.form-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 16px 32px;
+}
+
+.preview-col {
+  min-height: 0;
   overflow: auto;
   padding: 24px;
   background:
@@ -189,22 +222,38 @@ function onSelectSection(id: string) {
   justify-content: center;
 }
 
+@media (max-width: 1280px) {
+  .workspace {
+    grid-template-columns: 200px minmax(280px, 340px) 1fr;
+  }
+}
+
+/* 窄屏放弃三列，改成纵向堆叠 */
 @media (max-width: 960px) {
   .workspace {
     grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
   }
 
-  .sidebar {
-    max-height: 45vh;
+  .nav-col,
+  .form-col {
     border-right: none;
     border-bottom: 1px solid var(--cv-border);
+  }
+
+  .nav-col {
+    max-height: 30vh;
+  }
+
+  .form-col {
+    max-height: 45vh;
   }
 }
 
 @media print {
   .editor,
   .workspace,
-  .preview-area,
+  .preview-col,
   .preview-stage {
     display: block !important;
     height: auto !important;
