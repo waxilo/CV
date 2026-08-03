@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import type { InputInstance } from 'element-plus';
 import {
   richTextToHtml,
@@ -27,18 +27,104 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void;
 }>();
 
+interface IHistorySnapshot {
+  value: string;
+  start: number;
+  end: number;
+}
+
 const inputRef = ref<InputInstance>();
 const mode = ref<'edit' | 'preview'>('edit');
+const undoStack = ref<IHistorySnapshot[]>([]);
+const redoStack = ref<IHistorySnapshot[]>([]);
+/** 与父组件同步过的值，用来区分「自己 emit」和「外部换条目」 */
+const lastEmitted = ref(props.modelValue || '');
+
+const MAX_HISTORY = 100;
+const TYPING_COMMIT_MS = 400;
+
+let typingAnchor: IHistorySnapshot | null = null;
+let typingTimer: ReturnType<typeof setTimeout> | null = null;
 
 const previewHtml = computed(() => sanitizeHtml(richTextToHtml(props.modelValue || '')));
+const canUndo = computed(() => undoStack.value.length > 0 || Boolean(typingAnchor));
+const canRedo = computed(() => redoStack.value.length > 0);
 
 function getNativeTextarea(): HTMLTextAreaElement | null {
   const root = inputRef.value?.$el as HTMLElement | undefined;
   return (root?.querySelector('textarea') as HTMLTextAreaElement | null) ?? null;
 }
 
+function currentSnapshot(): IHistorySnapshot {
+  const el = getNativeTextarea();
+  const value = props.modelValue || '';
+  return {
+    value,
+    start: el?.selectionStart ?? value.length,
+    end: el?.selectionEnd ?? value.length,
+  };
+}
+
+function pushHistory(snapshot: IHistorySnapshot) {
+  const top = undoStack.value[undoStack.value.length - 1];
+  if (top && top.value === snapshot.value) return;
+  undoStack.value.push(snapshot);
+  if (undoStack.value.length > MAX_HISTORY) undoStack.value.shift();
+  redoStack.value = [];
+}
+
+function emitValue(value: string) {
+  lastEmitted.value = value;
+  emit('update:modelValue', value);
+}
+
+function restoreSnapshot(snapshot: IHistorySnapshot) {
+  emitValue(snapshot.value);
+  nextTick(() => {
+    const target = getNativeTextarea();
+    if (!target) return;
+    target.focus();
+    const max = snapshot.value.length;
+    target.setSelectionRange(Math.min(snapshot.start, max), Math.min(snapshot.end, max));
+  });
+}
+
+function clearTypingTimer() {
+  if (typingTimer) {
+    clearTimeout(typingTimer);
+    typingTimer = null;
+  }
+}
+
+/** 把当前输入会话收成一条历史：锚点是输入开始前的内容 */
+function commitTypingSession() {
+  clearTypingTimer();
+  if (!typingAnchor) return;
+  if (typingAnchor.value !== (props.modelValue || '')) {
+    pushHistory(typingAnchor);
+  }
+  typingAnchor = null;
+}
+
+function onInput(value: string) {
+  if (!typingAnchor) {
+    typingAnchor = {
+      value: props.modelValue || '',
+      start: getNativeTextarea()?.selectionStart ?? 0,
+      end: getNativeTextarea()?.selectionEnd ?? 0,
+    };
+  }
+  emitValue(value);
+  clearTypingTimer();
+  typingTimer = setTimeout(() => {
+    commitTypingSession();
+  }, TYPING_COMMIT_MS);
+}
+
 function applyPatch(next: { value: string; start: number; end: number }) {
-  emit('update:modelValue', next.value);
+  commitTypingSession();
+  pushHistory(currentSnapshot());
+  emitValue(next.value);
   nextTick(() => {
     const target = getNativeTextarea();
     if (!target) return;
@@ -70,10 +156,45 @@ function applyLink() {
   withSelection((value, start, end) => wrapLinkMarkers(value, start, end));
 }
 
+function undo() {
+  mode.value = 'edit';
+  commitTypingSession();
+  if (!undoStack.value.length) return;
+  const current = currentSnapshot();
+  const previous = undoStack.value.pop();
+  if (!previous) return;
+  redoStack.value.push(current);
+  restoreSnapshot(previous);
+}
+
+function redo() {
+  mode.value = 'edit';
+  commitTypingSession();
+  if (!redoStack.value.length) return;
+  const current = currentSnapshot();
+  const next = redoStack.value.pop();
+  if (!next) return;
+  undoStack.value.push(current);
+  restoreSnapshot(next);
+}
+
 function onKeydown(event: Event | KeyboardEvent) {
   const e = event as KeyboardEvent;
   if (!(e.metaKey || e.ctrlKey)) return;
   const key = e.key.toLowerCase();
+
+  if (key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    e.stopPropagation();
+    undo();
+    return;
+  }
+  if ((key === 'z' && e.shiftKey) || key === 'y') {
+    e.preventDefault();
+    e.stopPropagation();
+    redo();
+    return;
+  }
   if (key === 'b') {
     e.preventDefault();
     applyMarker('**');
@@ -84,6 +205,24 @@ function onKeydown(event: Event | KeyboardEvent) {
     applyMarker('*');
   }
 }
+
+watch(
+  () => props.modelValue,
+  (value) => {
+    const next = value || '';
+    if (next === lastEmitted.value) return;
+    // 外部换了条目/内容：历史作废
+    lastEmitted.value = next;
+    undoStack.value = [];
+    redoStack.value = [];
+    typingAnchor = null;
+    clearTypingTimer();
+  }
+);
+
+onBeforeUnmount(() => {
+  clearTypingTimer();
+});
 </script>
 
 <template>
@@ -133,6 +272,28 @@ function onKeydown(event: Event | KeyboardEvent) {
       >
         <el-icon><Link /></el-icon>
       </el-button>
+      <el-button
+        size="small"
+        text
+        class="tool-btn"
+        title="撤销（Ctrl/⌘ + Z）"
+        :disabled="mode === 'preview' || !canUndo"
+        @mousedown.prevent
+        @click="undo"
+      >
+        <el-icon><RefreshLeft /></el-icon>
+      </el-button>
+      <el-button
+        size="small"
+        text
+        class="tool-btn"
+        title="重做（Ctrl/⌘ + Shift + Z）"
+        :disabled="mode === 'preview' || !canRedo"
+        @mousedown.prevent
+        @click="redo"
+      >
+        <el-icon><RefreshRight /></el-icon>
+      </el-button>
       <span class="spacer" />
       <el-button
         size="small"
@@ -161,7 +322,7 @@ function onKeydown(event: Event | KeyboardEvent) {
       type="textarea"
       :rows="rows"
       :placeholder="placeholder"
-      @update:model-value="(v: string) => emit('update:modelValue', v)"
+      @update:model-value="onInput"
     />
 
     <div

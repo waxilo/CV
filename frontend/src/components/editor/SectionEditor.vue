@@ -236,7 +236,7 @@ watch(
     <RichTextArea
       v-if="section.type === 'summary'"
       :model-value="section.content || ''"
-      :rows="5"
+      :rows="8"
       placeholder="简要介绍你的背景与优势"
       @update:model-value="(v: string) => resumeStore.updateSectionContent(section!.id, v)"
     />
@@ -360,7 +360,7 @@ watch(
                 <el-form-item label="描述">
                   <RichTextArea
                     :model-value="text(editingItem, 'description')"
-                    :rows="8"
+                    :rows="12"
                     @update:model-value="(v: string) => patch(editingItem!, { description: v })"
                   />
                 </el-form-item>
@@ -404,7 +404,7 @@ watch(
                 <el-form-item label="描述">
                   <RichTextArea
                     :model-value="text(editingItem, 'description')"
-                    :rows="6"
+                    :rows="10"
                     placeholder="主修课程、获奖、论文或其他补充说明"
                     @update:model-value="(v: string) => patch(editingItem!, { description: v })"
                   />
@@ -431,7 +431,7 @@ watch(
                 <el-form-item label="描述">
                   <RichTextArea
                     :model-value="text(editingItem, 'description')"
-                    :rows="6"
+                    :rows="10"
                     placeholder="说明掌握范围、技术细节或实践经验"
                     @update:model-value="(v: string) => patch(editingItem!, { description: v })"
                   />
@@ -454,7 +454,7 @@ watch(
                 <el-form-item label="描述">
                   <RichTextArea
                     :model-value="text(editingItem, 'description')"
-                    :rows="8"
+                    :rows="12"
                     @update:model-value="(v: string) => patch(editingItem!, { description: v })"
                   />
                 </el-form-item>
@@ -487,7 +487,7 @@ watch(
                 <el-form-item label="描述">
                   <RichTextArea
                     :model-value="text(editingItem, 'description')"
-                    :rows="6"
+                    :rows="10"
                     @update:model-value="(v: string) => patch(editingItem!, { description: v })"
                   />
                 </el-form-item>
