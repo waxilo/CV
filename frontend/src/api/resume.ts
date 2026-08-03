@@ -31,3 +31,11 @@ export function updateResumeApi(data: {
 export function deleteResumeApi(resumeId: string): Promise<IApiResponse<void>> {
   return request.post('/api/resume-service/v1/delete-resume', { resume_id: resumeId }).then((r) => r.data);
 }
+
+export function cloneResumeApi(
+  resumeId: string
+): Promise<IApiResponse<{ resume_id: string; title: string; slug: string; template_id: string }>> {
+  return request
+    .post('/api/resume-service/v1/clone-resume', { resume_id: resumeId })
+    .then((r) => r.data);
+}

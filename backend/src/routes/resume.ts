@@ -277,6 +277,72 @@ resumeRoutes.post('/update-resume', async (c) => {
   });
 });
 
+/** POST /api/resume-service/v1/clone-resume */
+resumeRoutes.post('/clone-resume', async (c) => {
+  const body = await c.req.json();
+  const parsed = idSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      { success: false, code: 'COMMON_PARAM_invalidRequest', message: 'resume_id 无效' },
+      400
+    );
+  }
+
+  const user = c.get('user');
+  const db = createDb(c.env.DB);
+
+  const rows = await db
+    .select()
+    .from(resumes)
+    .where(
+      and(
+        eq(resumes.id, parsed.data.resume_id),
+        eq(resumes.userId, user.sub),
+        eq(resumes.isDeleted, false)
+      )
+    )
+    .limit(1);
+
+  const source = rows[0];
+  if (!source) {
+    return c.json(
+      { success: false, code: 'RESUME_NOT_FOUND', message: '简历不存在' },
+      404
+    );
+  }
+
+  const id = generateId();
+  const title = `${source.title} 副本`;
+  const slug = `resume-${id.slice(0, 8)}`;
+  // 整份 data 深拷贝：基本信息、各模块条目、主题/字体/页边距/模板变量一并带上
+  const cloned = JSON.parse(JSON.stringify(source.data ?? createDefaultResumeData())) as IResumeData;
+  if (!cloned.metadata) {
+    cloned.metadata = createDefaultResumeData().metadata;
+  }
+  cloned.metadata.templateId = source.templateId;
+
+  await db.insert(resumes).values({
+    id,
+    userId: user.sub,
+    title,
+    slug,
+    data: cloned,
+    templateId: source.templateId,
+  });
+
+  return c.json({
+    success: true,
+    code: '0',
+    message: '复制成功',
+    data: {
+      resume_id: id,
+      title,
+      slug,
+      template_id: source.templateId,
+    },
+  });
+});
+
 /** POST /api/resume-service/v1/delete-resume */
 resumeRoutes.post('/delete-resume', async (c) => {
   const body = await c.req.json();

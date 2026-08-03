@@ -220,8 +220,13 @@ export function wrapResumeDocument(body: string, previewId?: string): string {
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline'; font-src data:;${scriptPolicy}" />
 <title>Resume</title>
 <style>
-html, body { scrollbar-width: none; }
+html, body, .cv-root, .cv-root * {
+  scrollbar-width: none;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
 html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0; height: 0; display: none; }
+::selection, *::selection { background: transparent !important; color: inherit !important; }
 </style></head><body style="margin:0;background:#fff;">${body}${paginationScript}</body></html>`;
 }
 

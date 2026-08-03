@@ -75,6 +75,12 @@ async function handleDelete(id: string, title: string) {
   ElMessage.success('已删除');
 }
 
+async function handleCopy(item: IResumeSummary) {
+  const id = await resumeStore.duplicateResume(item.resume_id);
+  if (id) ElMessage.success('已复制');
+  else ElMessage.error('复制失败');
+}
+
 function handleLogout() {
   userStore.logout();
   router.replace('/login');
@@ -216,23 +222,16 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
           >
             <PaperThumb :data="resumePreviewData(item)" :config="resumeThumbConfig(item)">
               <div class="paper-actions" @click.stop>
-                <el-button class="edit-button" size="small" @click="openEditor(item.resume_id)">
-                  编辑
+                <el-button class="action-button" size="small" @click="handleCopy(item)">
+                  复制
                 </el-button>
-                <el-dropdown trigger="click" placement="bottom-end">
-                  <button class="more-button" type="button" aria-label="更多操作">
-                    更多
-                    <el-icon><ArrowDown /></el-icon>
-                  </button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item @click="handleDelete(item.resume_id, item.title)">
-                        <el-icon><Delete /></el-icon>
-                        删除简历
-                      </el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
+                <el-button
+                  class="action-button danger"
+                  size="small"
+                  @click="handleDelete(item.resume_id, item.title)"
+                >
+                  删除
+                </el-button>
               </div>
             </PaperThumb>
 
@@ -655,45 +654,33 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: auto;
 }
 
-:deep(.edit-button) {
+:deep(.action-button) {
   height: 30px;
   margin: 0;
   padding: 0 16px;
-  border: 0;
-  border-radius: 999px;
-  color: #fff;
-  background: #2563eb;
-  font-weight: 600;
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
-  transition: background-color 0.2s ease, box-shadow 0.2s ease;
-
-  &:hover {
-    color: #fff;
-    background: #1d4ed8;
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.34);
-  }
-}
-
-.more-button {
-  height: 30px;
-  padding: 0 12px;
   border: 1px solid #e2e8f0;
   border-radius: 999px;
-  background: #fff;
   color: #475569;
-  font-size: 12px;
+  background: #fff;
   font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
   box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
-  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
-    border-color: #cbd5e1;
     color: #0f172a;
+    border-color: #cbd5e1;
     background: #f8fafc;
+  }
+
+  &.danger {
+    color: #dc2626;
+    border-color: #fecaca;
+
+    &:hover {
+      color: #b91c1c;
+      border-color: #fca5a5;
+      background: #fef2f2;
+    }
   }
 }
 

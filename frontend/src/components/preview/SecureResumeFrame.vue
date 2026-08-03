@@ -130,7 +130,17 @@ watch(
   { immediate: true, deep: true }
 );
 
+function lockPreviewSelection(): void {
+  const doc = iframeRef.value?.contentDocument;
+  if (!doc) return;
+  const block = (event: Event) => event.preventDefault();
+  doc.addEventListener('selectstart', block);
+  doc.addEventListener('dragstart', block);
+  doc.getSelection()?.removeAllRanges();
+}
+
 function handleIframeLoad(): void {
+  lockPreviewSelection();
   scheduleMeasure();
 }
 </script>
@@ -164,12 +174,19 @@ function handleIframeLoad(): void {
       :srcdoc="srcdoc"
       @load="handleIframeLoad"
     />
+    <!-- 挡住 iframe 内的文本选中；点击仍会冒泡到外层卡片 -->
+    <div class="interaction-shield" aria-hidden="true" />
   </div>
 </template>
 
 <style scoped lang="scss">
-.secure-preview.clipped {
+.secure-preview {
   position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.secure-preview.clipped {
   overflow: hidden;
 
   &::before,
@@ -194,11 +211,18 @@ function handleIframeLoad(): void {
   }
 }
 
+.interaction-shield {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+}
+
 .frame {
   border: none;
   background: #fff;
   box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
   display: block;
+  pointer-events: none;
 }
 
 @media print {

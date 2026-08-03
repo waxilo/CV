@@ -7,6 +7,7 @@ import {
   createResumeApi,
   listResumesApi,
   deleteResumeApi,
+  cloneResumeApi,
 } from '/@/api/resume';
 import type {
   IResumeData,
@@ -147,6 +148,14 @@ export const useResumeStore = defineStore('resume', () => {
   async function removeResume(resumeId: string) {
     await deleteResumeApi(resumeId);
     await fetchList();
+  }
+
+  /** 复制一份简历：后端深拷贝完整 data（内容、主题、字体等） */
+  async function duplicateResume(resumeId: string) {
+    const res = await cloneResumeApi(resumeId);
+    if (!res.data?.resume_id) return null;
+    await fetchList();
+    return res.data.resume_id;
   }
 
   function markDirty() {
@@ -355,6 +364,7 @@ export const useResumeStore = defineStore('resume', () => {
     loadResume,
     saveResume,
     removeResume,
+    duplicateResume,
     updateBasics,
     reorderSections,
     toggleSectionVisible,

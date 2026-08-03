@@ -104,26 +104,30 @@ function onSelect(key: string) {
     </header>
 
     <div class="workspace">
-      <!-- 第一段：模块导航 -->
-      <aside class="nav-col no-print">
-        <EditorNav :active-key="activeKey" @select="onSelect" />
-      </aside>
+      <!--
+        左两段（导航 + 表单）包成 composer：条目编辑页 Teleport 到这里，
+        从底部升起时正好盖住这两栏，右侧预览保持可见。
+      -->
+      <div class="composer" data-item-sheet-host>
+        <aside class="nav-col no-print">
+          <EditorNav :active-key="activeKey" @select="onSelect" />
+        </aside>
 
-      <!-- 第二段：当前模块的内容表单 -->
-      <section class="form-col no-print">
-        <div class="form-head">
-          <h2>{{ activePaneTitle }}</h2>
-        </div>
-        <div class="form-body">
-          <BasicsForm v-if="activeKey === 'basics'" />
-          <TemplatePicker v-else-if="activeKey === 'template'" />
-          <ThemePanel v-else-if="activeKey === 'theme'" />
-          <SectionEditor v-else-if="activeSectionId" :key="activeSectionId" :section-id="activeSectionId" />
-        </div>
-      </section>
+        <section class="form-col no-print">
+          <div class="form-head">
+            <h2>{{ activePaneTitle }}</h2>
+          </div>
+          <div class="form-body">
+            <BasicsForm v-if="activeKey === 'basics'" />
+            <TemplatePicker v-else-if="activeKey === 'template'" />
+            <ThemePanel v-else-if="activeKey === 'theme'" />
+            <SectionEditor v-else-if="activeSectionId" :key="activeSectionId" :section-id="activeSectionId" />
+          </div>
+        </section>
+      </div>
 
-      <!-- 第三段：简历预览 -->
-      <section class="preview-col">
+      <!-- 第三段：简历预览；点这里也会收起条目编辑页 -->
+      <section class="preview-col" data-preview-col>
         <div class="preview-stage">
           <ResumePreview v-if="resumeStore.data" :data="resumeStore.data" />
         </div>
@@ -162,12 +166,21 @@ function onSelect(key: string) {
   width: 220px;
 }
 
-/* 三段式：模块导航 / 模块内容 / 预览 */
+/* 三段式：左两段合拢 + 预览 */
 .workspace {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 232px minmax(320px, 400px) 1fr;
+  grid-template-columns: minmax(552px, 632px) 1fr;
+}
+
+.composer {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 232px minmax(320px, 400px);
+  overflow: hidden;
 }
 
 .nav-col {
@@ -209,6 +222,7 @@ function onSelect(key: string) {
 }
 
 .preview-col {
+  position: relative;
   min-height: 0;
   overflow: auto;
   padding: 24px;
@@ -224,7 +238,11 @@ function onSelect(key: string) {
 
 @media (max-width: 1280px) {
   .workspace {
-    grid-template-columns: 200px minmax(280px, 340px) 1fr;
+    grid-template-columns: minmax(480px, 540px) 1fr;
+  }
+
+  .composer {
+    grid-template-columns: 200px minmax(280px, 340px);
   }
 }
 
@@ -232,7 +250,13 @@ function onSelect(key: string) {
 @media (max-width: 960px) {
   .workspace {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .composer {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    max-height: 75vh;
   }
 
   .nav-col,
@@ -246,7 +270,7 @@ function onSelect(key: string) {
   }
 
   .form-col {
-    max-height: 45vh;
+    min-height: 0;
   }
 }
 
