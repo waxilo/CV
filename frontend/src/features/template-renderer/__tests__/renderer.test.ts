@@ -22,6 +22,7 @@ import {
   scopeCss,
   richTextToHtml,
   toggleBoldMarkers,
+  htmlToMarkdown,
   validateCustomCss,
   validateTemplateConfig,
 } from '../index';
@@ -234,6 +235,9 @@ describe('richTextToHtml / markdown markers', () => {
       '<p>负责 <strong>订单</strong> 中心<br />优化</p>'
     );
     expect(richTextToHtml('- 项一\n- 项二')).toBe('<ul><li>项一</li><li>项二</li></ul>');
+    expect(richTextToHtml('1.具备经验\n2.具备能力')).toBe(
+      '<ol><li>具备经验</li><li>具备能力</li></ol>'
+    );
     expect(richTextToHtml('见 [文档](https://example.com)')).toContain(
       '<a href="https://example.com"'
     );
@@ -257,6 +261,14 @@ describe('richTextToHtml / markdown markers', () => {
       start: 7,
       end: 7,
     });
+  });
+
+  it('htmlToMarkdown 能还原常用结构', () => {
+    expect(htmlToMarkdown('<p>负责 <strong>订单</strong></p>')).toBe('负责 **订单**');
+    expect(htmlToMarkdown('<ul><li>项一</li><li>项二</li></ul>')).toBe('- 项一\n- 项二');
+    expect(htmlToMarkdown('<p><a href="https://example.com">文档</a></p>')).toBe(
+      '[文档](https://example.com)'
+    );
   });
 });
 

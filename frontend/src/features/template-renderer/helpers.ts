@@ -161,7 +161,13 @@ export function nl2br(value: unknown): SafeHtml {
 /**
  * 简历描述 Markdown → HTML（先转义再解析，输出仍需走 sanitizeHtml）。
  * 支持：段落/换行、**加粗**、*斜体*、~~删除线~~、`代码`、[链接](https://…)、- / 1. 列表。
+ *
+ * 有序清单兼容中文简历常见写法「1.内容」（点后可无空格）；
+ * 避免把「1.0」「2023.3」误判为列表。
  */
+const UNORDERED_LIST_RE = /^\s*[-*+]\s+\S/;
+const ORDERED_LIST_RE = /^\s*\d+\.(?:\s+|(?=[^\d\s]))\s*\S/;
+
 export function richTextToHtml(text: string): string {
   if (!text) return '';
   const lines = String(text).replace(/\r\n/g, '\n').split('\n');
@@ -176,9 +182,9 @@ export function richTextToHtml(text: string): string {
       continue;
     }
 
-    if (/^\s*[-*+]\s+/.test(line)) {
+    if (UNORDERED_LIST_RE.test(line)) {
       const items: string[] = [];
-      while (index < lines.length && /^\s*[-*+]\s+/.test(lines[index])) {
+      while (index < lines.length && UNORDERED_LIST_RE.test(lines[index])) {
         const raw = lines[index].replace(/^\s*[-*+]\s+/, '');
         items.push(`<li>${inlineMarkdown(escapeHtml(raw))}</li>`);
         index += 1;
@@ -187,10 +193,10 @@ export function richTextToHtml(text: string): string {
       continue;
     }
 
-    if (/^\s*\d+\.\s+/.test(line)) {
+    if (ORDERED_LIST_RE.test(line)) {
       const items: string[] = [];
-      while (index < lines.length && /^\s*\d+\.\s+/.test(lines[index])) {
-        const raw = lines[index].replace(/^\s*\d+\.\s+/, '');
+      while (index < lines.length && ORDERED_LIST_RE.test(lines[index])) {
+        const raw = lines[index].replace(/^\s*\d+\.\s*/, '');
         items.push(`<li>${inlineMarkdown(escapeHtml(raw))}</li>`);
         index += 1;
       }
@@ -202,8 +208,8 @@ export function richTextToHtml(text: string): string {
     while (
       index < lines.length &&
       lines[index].trim() &&
-      !/^\s*[-*+]\s+/.test(lines[index]) &&
-      !/^\s*\d+\.\s+/.test(lines[index])
+      !UNORDERED_LIST_RE.test(lines[index]) &&
+      !ORDERED_LIST_RE.test(lines[index])
     ) {
       paragraph.push(inlineMarkdown(escapeHtml(lines[index])));
       index += 1;
@@ -212,6 +218,166 @@ export function richTextToHtml(text: string): string {
   }
 
   return blocks.join('');
+}
+
+/**
+ * WYSIWYG 编辑器输出的 HTML → Markdown（与 richTextToHtml 支持的子集对应）。
+ * 仅在浏览器环境使用 DOMParser；无 DOM 时退回去标签纯文本。
+ */
+export function htmlToMarkdown(html: string): string {
+  if (!html) return '';
+  const normalized = html
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\u00a0/g, ' ')
+    .trim();
+  if (!normalized || /^(?:<br\s*\/?>|<p>(?:\s|<br\s*\/?>)*<\/p>|<div>(?:\s|<br\s*\/?>)*<\/div>)*$/i.test(normalized)) {
+    return '';
+  }
+
+  if (typeof DOMParser === 'undefined') {
+    return normalized.replace(/<[^>]+>/g, '').trim();
+  }
+
+  const doc = new DOMParser().parseFromString(`<div id="__md_root">${normalized}</div>`, 'text/html');
+  const root = doc.getElementById('__md_root');
+  if (!root) return '';
+  return serializeBlocks(root).replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function serializeInline(node: Node): string {
+  if (node.nodeType === 3 /* TEXT */) {
+    return (node.textContent || '').replace(/\u00a0/g, ' ');
+  }
+  if (node.nodeType !== 1 /* ELEMENT */) return '';
+
+  const el = node as HTMLElement;
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'br') return '\n';
+
+  const inner = Array.from(el.childNodes).map(serializeInline).join('');
+  switch (tag) {
+    case 'strong':
+    case 'b':
+      return inner ? `**${inner}**` : '';
+    case 'em':
+    case 'i':
+      return inner ? `*${inner}*` : '';
+    case 's':
+    case 'strike':
+    case 'del':
+      return inner ? `~~${inner}~~` : '';
+    case 'code':
+      return inner ? `\`${inner}\`` : '';
+    case 'a': {
+      const href = el.getAttribute('href') || '';
+      if (inner && /^https?:\/\//i.test(href)) return `[${inner}](${href})`;
+      return inner;
+    }
+    default:
+      return inner;
+  }
+}
+
+function serializeBlocks(root: HTMLElement): string {
+  const parts: string[] = [];
+
+  for (const child of Array.from(root.childNodes)) {
+    if (child.nodeType === 3 /* TEXT */) {
+      const text = (child.textContent || '').replace(/\u00a0/g, ' ').trim();
+      if (text) parts.push(normalizePlainListBlock(text) || text);
+      continue;
+    }
+    if (child.nodeType !== 1) continue;
+
+    const el = child as HTMLElement;
+    const tag = el.tagName.toLowerCase();
+
+    if (tag === 'ul') {
+      const items = Array.from(el.children)
+        .filter((node) => node.tagName.toLowerCase() === 'li')
+        .map((li) => `- ${Array.from(li.childNodes).map(serializeInline).join('').trim()}`)
+        .filter((line) => line !== '-');
+      if (items.length) parts.push(items.join('\n'));
+      continue;
+    }
+
+    if (tag === 'ol') {
+      const items = Array.from(el.children)
+        .filter((node) => node.tagName.toLowerCase() === 'li')
+        .map((li, index) => `${index + 1}. ${Array.from(li.childNodes).map(serializeInline).join('').trim()}`)
+        .filter((line) => !/^\d+\.\s*$/.test(line));
+      if (items.length) parts.push(items.join('\n'));
+      continue;
+    }
+
+    if (tag === 'br') {
+      parts.push('');
+      continue;
+    }
+
+    if (tag === 'p' || tag === 'div') {
+      const text = Array.from(el.childNodes).map(serializeInline).join('').replace(/\n+$/g, '');
+      parts.push(normalizePlainListBlock(text) || text);
+      continue;
+    }
+
+    const inline = serializeInline(el);
+    if (inline.trim()) parts.push(normalizePlainListBlock(inline.trim()) || inline.trim());
+  }
+
+  return mergeAdjacentListParts(parts).join('\n\n');
+}
+
+/** 把「1.内容」/「1. 内容」这种多行纯文本收成标准列表 Markdown */
+function normalizePlainListBlock(text: string): string | null {
+  const lines = text
+    .split('\n')
+    .map((line) => line.replace(/\u00a0/g, ' ').trim())
+    .filter(Boolean);
+  if (lines.length < 2) return null;
+
+  if (lines.every((line) => ORDERED_LIST_RE.test(line))) {
+    return lines
+      .map((line, index) => `${index + 1}. ${line.replace(/^\s*\d+\.\s*/, '')}`)
+      .join('\n');
+  }
+
+  if (lines.every((line) => /^\s*[-*+]\s*\S/.test(line))) {
+    return lines.map((line) => `- ${line.replace(/^\s*[-*+]\s*/, '')}`).join('\n');
+  }
+
+  return null;
+}
+
+/** 相邻的有序/无序清单块合并，避免被空行拆成多个列表 */
+function mergeAdjacentListParts(parts: string[]): string[] {
+  const merged: string[] = [];
+  for (const part of parts) {
+    if (!part) {
+      merged.push(part);
+      continue;
+    }
+    const prev = merged[merged.length - 1];
+    const partIsOrdered = part.split('\n').every((line) => !line.trim() || ORDERED_LIST_RE.test(line));
+    const partIsUnordered = part.split('\n').every((line) => !line.trim() || /^\s*[-*+]\s+\S/.test(line));
+    const prevIsOrdered =
+      typeof prev === 'string' &&
+      prev.split('\n').every((line) => !line.trim() || ORDERED_LIST_RE.test(line));
+    const prevIsUnordered =
+      typeof prev === 'string' &&
+      prev.split('\n').every((line) => !line.trim() || /^\s*[-*+]\s+\S/.test(line));
+
+    if (prev && partIsOrdered && prevIsOrdered) {
+      merged[merged.length - 1] = `${prev}\n${part}`;
+      continue;
+    }
+    if (prev && partIsUnordered && prevIsUnordered) {
+      merged[merged.length - 1] = `${prev}\n${part}`;
+      continue;
+    }
+    merged.push(part);
+  }
+  return merged;
 }
 
 /** 已转义文本上的行内 Markdown */

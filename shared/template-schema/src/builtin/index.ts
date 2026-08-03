@@ -236,10 +236,10 @@ const MODERN_CSS = `
 .date { flex-shrink: 0; font-size: 0.85em; color: var(--tpl-muted-color); white-space: nowrap; }
 .sub { margin-top: 2px; font-size: 0.92em; color: var(--tpl-muted-color); }
 .rich { margin-top: 5px; }
-.rich p { margin: 0 0 0.4em; }
+.rich p { margin: 0 0 0.35em; }
 .rich p:last-child { margin-bottom: 0; }
-.rich ul, .rich ol { margin: 0.3em 0; padding-left: 1.35em; }
-.rich li { margin: 0.12em 0; }
+.rich ul, .rich ol { margin: 0.2em 0 0.35em; padding-left: 1.35em; }
+.rich li { margin: 0.2em 0; }
 .rich a { color: inherit; text-decoration: underline; }
 
 .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
@@ -343,10 +343,10 @@ const CLASSIC_CSS = `
 .sub { margin-top: 2px; font-size: 0.92em; color: var(--tpl-muted-color); }
 .sub em { font-style: italic; }
 .rich { margin-top: 4px; text-align: justify; }
-.rich p { margin: 0 0 0.4em; text-align: justify; }
+.rich p { margin: 0 0 0.35em; text-align: justify; }
 .rich p:last-child { margin-bottom: 0; }
-.rich ul, .rich ol { margin: 0.3em 0; padding-left: 1.35em; }
-.rich li { margin: 0.12em 0; }
+.rich ul, .rich ol { margin: 0.2em 0 0.35em; padding-left: 1.35em; }
+.rich li { margin: 0.2em 0; }
 .rich a { color: inherit; text-decoration: underline; }
 .skill-line { margin: 0; }
 
@@ -437,10 +437,10 @@ const MINIMAL_CSS = `
 .sub { display: block; margin-top: 1px; font-size: 0.9em; color: var(--tpl-muted-color); }
 .date { flex-shrink: 0; font-size: 0.8em; color: var(--tpl-muted-color); white-space: nowrap; padding-top: 2px; }
 .rich { margin-top: 5px; font-size: 0.95em; }
-.rich p { margin: 0 0 0.4em; }
+.rich p { margin: 0 0 0.35em; }
 .rich p:last-child { margin-bottom: 0; }
-.rich ul, .rich ol { margin: 0.3em 0; padding-left: 1.35em; }
-.rich li { margin: 0.12em 0; }
+.rich ul, .rich ol { margin: 0.2em 0 0.35em; padding-left: 1.35em; }
+.rich li { margin: 0.2em 0; }
 .rich a { color: inherit; text-decoration: underline; }
 
 .tags { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; font-size: 0.85em; color: var(--tpl-muted-color); }
@@ -607,10 +607,13 @@ const TECHNICAL_CSS = `
   margin-top: 4px;
   text-align: justify;
 }
-.rich p { margin: 0 0 0.4em; text-align: justify; }
+.rich p { margin: 0 0 0.35em; text-align: justify; }
 .rich p:last-child { margin-bottom: 0; }
-.rich ul, .rich ol { margin: 0.3em 0; padding-left: 1.35em; }
-.rich li { margin: 0.12em 0; }
+.rich ul, .rich ol {
+  margin: 0.2em 0 0.35em;
+  padding-left: 1.35em;
+}
+.rich li { margin: 0.2em 0; }
 .rich a { color: inherit; text-decoration: underline; }
 .summary {
   margin-top: 0;
