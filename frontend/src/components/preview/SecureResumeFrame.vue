@@ -33,9 +33,6 @@ const isMeasuring = ref(false);
 const result = computed(() => renderTemplate(props.config, props.data));
 const srcdoc = computed(() => resultToDocument(result.value));
 const margins = computed(() => result.value.context.page.margin);
-const pageContentHeightMm = computed(() =>
-  Math.max(1, 297 - margins.value.top - margins.value.bottom)
-);
 const pageMarginBackground = computed(() => {
   const primaryColorValue =
     result.value.context.vars.primaryColor || result.value.config.primaryColor || '#2563eb';
@@ -96,18 +93,17 @@ function measurePagesFromIframe(): void {
   root.style.minHeight = '297mm';
   root.style.overflow = 'visible';
 
-  // 先按块避断插入垫片，再统计页数，避免裁切时拦腰切断标题/条目
+  // 按整页 297mm 插入垫片（与打印导出同一套坐标系）
   const nextPageCount = paginateResumeRoot(root, {
     margin: { top: margins.value.top, bottom: margins.value.bottom },
     pxPerMm: PX_PER_MM,
   });
   // 垫片会抬高总高度；再量一次兜底，防止漏选块导致少算页
   const contentHeightPx = measureContentHeightPx(root);
-  const verticalMarginsPx = (margins.value.top + margins.value.bottom) * PX_PER_MM;
-  const contentAreaPx = pageContentHeightMm.value * PX_PER_MM;
-  const usedContentPx = Math.max(contentAreaPx, contentHeightPx - verticalMarginsPx);
-  const measuredPageCount = Math.max(1, Math.ceil((usedContentPx - 1) / contentAreaPx));
-  setPageCount(Math.max(nextPageCount, measuredPageCount));
+  const measuredPageCount = Math.max(1, Math.ceil((contentHeightPx - 1) / A4_HEIGHT_PX));
+  const pageCountFinal = Math.max(nextPageCount, measuredPageCount);
+  root.style.minHeight = `${pageCountFinal * 297}mm`;
+  setPageCount(pageCountFinal);
   isMeasuring.value = false;
 }
 
@@ -174,9 +170,7 @@ function handleIframeLoad(): void {
       :style="{
         width: pageSize.width,
         height: iframeHeight,
-        transform: clipToPage
-          ? `translateY(-${pageIndex * pageContentHeightMm}mm)`
-          : undefined,
+        transform: clipToPage ? `translateY(-${pageIndex * 297}mm)` : undefined,
       }"
       :srcdoc="srcdoc"
       @load="handleIframeLoad"

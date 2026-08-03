@@ -1,9 +1,11 @@
 /**
- * 预览智能分页
+ * 智能分页（预览 + 打印共用）
  *
- * 屏幕预览用「按内容区高度裁切」模拟多页，CSS break-* 不生效。
- * 在测量阶段给会跨页的块前面插入垫片，把块推到下一页内容区起点，
- * 避免标题孤立、条目被拦腰切断。
+ * 按整页 297mm 对齐：
+ * - 第 N 页内容区：[N*297 + top, (N+1)*297 - bottom)
+ * - 放不下的块推到下一页内容区起点：(N+1)*297 + top
+ *
+ * 预览用 translateY(-N*297mm) 裁切，打印用 @page 按 297mm 分页，两者一致。
  */
 
 export interface IPageMarginMm {
@@ -152,9 +154,10 @@ export function paginateResumeRoot(root: HTMLElement, options: IPaginateOptions)
       // 落在首页上边距之前的跳过
       if (box.bottom <= topPx) continue;
 
-      const flowTop = Math.max(box.top, topPx);
-      const pageIndex = Math.max(0, Math.floor((flowTop - topPx) / contentHeightPx));
-      const pageContentEnd = topPx + (pageIndex + 1) * contentHeightPx;
+      // 按整页 297mm 定位当前页
+      const pageIndex = Math.max(0, Math.floor(box.top / pageHeightPx));
+      const pageContentEnd = (pageIndex + 1) * pageHeightPx - bottomPx;
+      const nextContentStart = (pageIndex + 1) * pageHeightPx + topPx;
 
       const isTitle = el.matches(TITLE_SELECTOR);
       let blockBottom = box.bottom;
@@ -172,11 +175,11 @@ export function paginateResumeRoot(root: HTMLElement, options: IPaginateOptions)
       // 未跨过本页内容底边
       if (blockBottom <= pageContentEnd + 0.5) continue;
 
-      // 整块能放进一页内容区 → 推到下一页；否则允许自然拆分（超长条目）
+      // 整块能放进一页内容区 → 推到下一页内容区起点（含本页底边距 + 下页顶边距）
       if (blockHeight <= contentHeightPx + 0.5) {
         const anchor = spacerAnchor(el);
         const anchorBox = anchor === el ? box : offsetFromRoot(root, anchor);
-        const spacerHeight = pageContentEnd - anchorBox.top;
+        const spacerHeight = nextContentStart - anchorBox.top;
         if (spacerHeight > 0.5) {
           insertSpacerBefore(anchor, spacerHeight);
           moved = true;
@@ -188,7 +191,7 @@ export function paginateResumeRoot(root: HTMLElement, options: IPaginateOptions)
       if (isTitle && box.bottom <= pageContentEnd + 0.5 && box.height <= contentHeightPx + 0.5) {
         const anchor = spacerAnchor(el);
         const anchorBox = anchor === el ? box : offsetFromRoot(root, anchor);
-        const spacerHeight = pageContentEnd - anchorBox.top;
+        const spacerHeight = nextContentStart - anchorBox.top;
         if (spacerHeight > 0.5) {
           insertSpacerBefore(anchor, spacerHeight);
           moved = true;
@@ -200,7 +203,7 @@ export function paginateResumeRoot(root: HTMLElement, options: IPaginateOptions)
   }
 
   const rootRect = root.getBoundingClientRect();
-  let maxBottom = rootRect.height;
+  let maxBottom = Math.max(rootRect.height, root.scrollHeight, pageHeightPx);
   const nodes = root.querySelectorAll('*');
   for (let i = 0; i < nodes.length; i += 1) {
     const rect = (nodes[i] as HTMLElement).getBoundingClientRect();
@@ -208,6 +211,5 @@ export function paginateResumeRoot(root: HTMLElement, options: IPaginateOptions)
     maxBottom = Math.max(maxBottom, rect.bottom - rootRect.top);
   }
 
-  const usedContentPx = Math.max(contentHeightPx, maxBottom - topPx - bottomPx);
-  return Math.max(1, Math.ceil((usedContentPx - 1) / contentHeightPx));
+  return Math.max(1, Math.ceil((maxBottom - 1) / pageHeightPx));
 }
