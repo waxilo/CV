@@ -272,8 +272,10 @@ ${Array.from({ length: 12 }, (_, i) => `.cv-col-${i + 1}{ width:${((i + 1) / 12)
   font-size: 1.05em; color: var(--tpl-primary-color);
   border-bottom: 2px solid var(--tpl-primary-color); padding-bottom: 4px; margin: 0 0 10px;
   font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif;
+  break-after: avoid;
+  page-break-after: avoid;
 }
-.cv-entry { margin-bottom: 12px; break-inside: avoid; }
+.cv-entry { margin-bottom: 12px; break-inside: avoid; page-break-inside: avoid; }
 .cv-entry-head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
 .cv-entry-head strong { font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif; }
 .cv-entry-head span { color: var(--tpl-muted-color); white-space: nowrap; font-size: 0.9em; }

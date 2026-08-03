@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import type { IResumeData } from '/@/types/resume';
 import type { ITemplateConfig } from '/@/types/template';
 import { renderTemplate, resultToDocument } from '/@/features/template-renderer';
+import { paginateResumeRoot } from '/@/features/template-renderer/paginate';
 
 const props = withDefaults(
   defineProps<{
@@ -95,12 +96,18 @@ function measurePagesFromIframe(): void {
   root.style.minHeight = '297mm';
   root.style.overflow = 'visible';
 
+  // 先按块避断插入垫片，再统计页数，避免裁切时拦腰切断标题/条目
+  const nextPageCount = paginateResumeRoot(root, {
+    margin: { top: margins.value.top, bottom: margins.value.bottom },
+    pxPerMm: PX_PER_MM,
+  });
+  // 垫片会抬高总高度；再量一次兜底，防止漏选块导致少算页
   const contentHeightPx = measureContentHeightPx(root);
   const verticalMarginsPx = (margins.value.top + margins.value.bottom) * PX_PER_MM;
   const contentAreaPx = pageContentHeightMm.value * PX_PER_MM;
   const usedContentPx = Math.max(contentAreaPx, contentHeightPx - verticalMarginsPx);
-  const nextPageCount = Math.max(1, Math.ceil((usedContentPx - 1) / contentAreaPx));
-  setPageCount(nextPageCount);
+  const measuredPageCount = Math.max(1, Math.ceil((usedContentPx - 1) / contentAreaPx));
+  setPageCount(Math.max(nextPageCount, measuredPageCount));
   isMeasuring.value = false;
 }
 

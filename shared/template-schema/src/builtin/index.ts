@@ -210,27 +210,31 @@ const MODERN_CSS = `
 .contacts li { display: flex; flex-direction: column; gap: 1px; margin-bottom: 8px; word-break: break-all; }
 .c-label { opacity: 0.65; font-size: 0.85em; }
 
-.side-sec { margin-bottom: 20px; break-inside: avoid; }
+.side-sec { margin-bottom: 20px; }
 .side-sec h2 {
   font-size: 0.95em; margin: 0 0 10px; padding-bottom: 5px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.35);
   font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif;
+  break-after: avoid;
+  page-break-after: avoid;
 }
-.side-item { margin-bottom: 10px; break-inside: avoid; }
+.side-item { margin-bottom: 10px; break-inside: avoid; page-break-inside: avoid; }
 .side-item-row { display: flex; justify-content: space-between; gap: 8px; font-size: 0.9em; }
 .side-item-row em { font-style: normal; opacity: 0.7; }
 .side-desc { margin-top: 5px; font-size: 0.82em; opacity: 0.9; white-space: pre-wrap; }
 .bar { height: 5px; margin-top: 5px; background: rgba(255, 255, 255, 0.25); border-radius: 99px; overflow: hidden; }
 .bar i { display: block; height: 100%; background: #fff; }
 
-.sec { margin-bottom: var(--tpl-section-gap); break-inside: avoid; }
+.sec { margin-bottom: var(--tpl-section-gap); }
 .sec-title {
   font-size: 1.05em; margin: 0 0 12px; padding-bottom: 5px;
   color: var(--tpl-primary-color);
   border-bottom: 2px solid var(--tpl-primary-color);
   font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif;
+  break-after: avoid;
+  page-break-after: avoid;
 }
-.item { margin-bottom: 13px; break-inside: avoid; }
+.item { margin-bottom: 13px; break-inside: avoid; page-break-inside: avoid; }
 .item-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .item-head strong { font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif; }
 .date { flex-shrink: 0; font-size: 0.85em; color: var(--tpl-muted-color); white-space: nowrap; }
@@ -327,16 +331,18 @@ const CLASSIC_CSS = `
 .contacts { margin: 10px 0 0; font-size: 0.85em; color: var(--tpl-muted-color); }
 .sep { margin: 0 7px; opacity: 0.5; }
 
-.sec { margin-top: var(--tpl-section-gap); break-inside: avoid; }
+.sec { margin-top: var(--tpl-section-gap); }
 .sec-title {
   font-size: 1em; margin: 0 0 10px; padding-bottom: 3px;
   text-transform: uppercase; letter-spacing: 0.1em;
   color: var(--tpl-primary-color);
   border-bottom: 1px solid #cbd5e1;
   font-family: var(--tpl-heading-font-family), var(--tpl-font-family), serif;
+  break-after: avoid;
+  page-break-after: avoid;
 }
 
-.item { margin-bottom: 12px; break-inside: avoid; }
+.item { margin-bottom: 12px; break-inside: avoid; page-break-inside: avoid; }
 .item-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .item-head strong { font-family: var(--tpl-heading-font-family), var(--tpl-font-family), serif; }
 .date { flex-shrink: 0; font-size: 0.85em; color: var(--tpl-muted-color); white-space: nowrap; }
@@ -419,16 +425,18 @@ const MINIMAL_CSS = `
   margin: 14px 0 0; padding: 0; font-size: 0.85em; color: var(--tpl-muted-color);
 }
 
-.sec { display: flex; gap: 20px; margin-bottom: var(--tpl-section-gap); break-inside: avoid; }
+.sec { display: flex; gap: 20px; margin-bottom: var(--tpl-section-gap); }
 .sec-title {
   width: 92px; flex-shrink: 0; margin: 0;
   font-size: 0.78em; font-weight: 500; text-transform: uppercase;
   letter-spacing: 0.14em; color: var(--tpl-primary-color); padding-top: 3px;
   font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif;
+  break-after: avoid;
+  page-break-after: avoid;
 }
 .sec-body { flex: 1; min-width: 0; }
 
-.item { display: flex; gap: 16px; margin-bottom: 16px; break-inside: avoid; }
+.item { display: flex; gap: 16px; margin-bottom: 16px; break-inside: avoid; page-break-inside: avoid; }
 .item-main { flex: 1; min-width: 0; }
 .item-main strong {
   font-weight: 500;
@@ -578,11 +586,14 @@ const TECHNICAL_CSS = `
   font-weight: 700;
   line-height: 1.25;
   color: var(--tpl-text-color);
+  break-after: avoid;
+  page-break-after: avoid;
 }
 .item,
 .skill-item {
   margin: 0 0 11px;
   break-inside: avoid;
+  page-break-inside: avoid;
 }
 .item-head {
   display: flex;

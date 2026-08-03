@@ -39,3 +39,6 @@ export {
 
 /* 示例数据 */
 export * from './sampleData';
+
+/* 预览智能分页 */
+export { paginateResumeRoot, clearPageSpacers, type IPaginateOptions, type IPageMarginMm } from './paginate';

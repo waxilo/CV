@@ -80,7 +80,25 @@ ${SCOPE_SELECTOR} .page-break {
   break-before: page;
   page-break-before: always;
 }
-${SCOPE_SELECTOR} .no-break {
+${SCOPE_SELECTOR} .no-break,
+${SCOPE_SELECTOR} .item,
+${SCOPE_SELECTOR} .skill-item,
+${SCOPE_SELECTOR} .cv-entry,
+${SCOPE_SELECTOR} .side-item,
+${SCOPE_SELECTOR} .side-sec,
+${SCOPE_SELECTOR} .head,
+${SCOPE_SELECTOR} .cv-header {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+${SCOPE_SELECTOR} .sec-title,
+${SCOPE_SELECTOR} .cv-section-title {
+  break-after: avoid;
+  page-break-after: avoid;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+${SCOPE_SELECTOR} [data-cv-page-spacer] {
   break-inside: avoid;
   page-break-inside: avoid;
 }

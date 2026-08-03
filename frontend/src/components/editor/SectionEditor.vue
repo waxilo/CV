@@ -236,7 +236,7 @@ watch(
     <RichTextArea
       v-if="section.type === 'summary'"
       :model-value="section.content || ''"
-      :rows="8"
+      :rows="12"
       placeholder="简要介绍你的背景与优势"
       @update:model-value="(v: string) => resumeStore.updateSectionContent(section!.id, v)"
     />
