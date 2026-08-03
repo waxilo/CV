@@ -3,6 +3,7 @@ import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useResumeStore } from '/@/stores/resume';
+import { exportResumePdf } from '/@/features/export/exportPdf';
 import EditorNav from '/@/components/editor/EditorNav.vue';
 import BasicsForm from '/@/components/editor/BasicsForm.vue';
 import SectionEditor from '/@/components/editor/SectionEditor.vue';
@@ -13,6 +14,7 @@ import ResumePreview from '/@/components/preview/ResumePreview.vue';
 const route = useRoute();
 const router = useRouter();
 const resumeStore = useResumeStore();
+const isExportingPdf = ref(false);
 
 const SECTION_PREFIX = 'section:';
 
@@ -76,10 +78,21 @@ watch(
   }
 );
 
-function handlePrint() {
-  if (!resumeStore.currentId) return;
-  const url = router.resolve({ name: 'PrintResume', params: { resumeId: resumeStore.currentId } }).href;
-  window.open(url, '_blank');
+async function handleExportPdf() {
+  if (!resumeStore.data || isExportingPdf.value) return;
+  isExportingPdf.value = true;
+  try {
+    await exportResumePdf({
+      data: resumeStore.data,
+      filename: resumeStore.title || resumeStore.data.basics.name || '简历',
+    });
+    ElMessage.success('PDF 已开始下载');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '导出失败，请稍后重试';
+    ElMessage.error(message);
+  } finally {
+    isExportingPdf.value = false;
+  }
 }
 
 function goBack() {
@@ -111,7 +124,7 @@ function onSelect(key: string) {
         <el-button :loading="resumeStore.isSaving" type="primary" title="Ctrl/⌘ + S" @click="handleSave">
           保存
         </el-button>
-        <el-button @click="handlePrint">导出 PDF</el-button>
+        <el-button :loading="isExportingPdf" @click="handleExportPdf">导出 PDF</el-button>
       </div>
     </header>
 
