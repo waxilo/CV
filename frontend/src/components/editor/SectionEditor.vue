@@ -4,6 +4,7 @@ import draggable from 'vuedraggable';
 import { ElMessageBox } from 'element-plus';
 import { useResumeStore } from '/@/stores/resume';
 import type { TSectionItem } from '/@/types/resume';
+import RichTextArea from './RichTextArea.vue';
 
 const props = defineProps<{
   sectionId: string;
@@ -25,10 +26,10 @@ const items = computed({
 
 /**
  * 收起状态只是 UI 偏好，不写进简历数据，所以放在组件本地。
- * 记「已收起的 id」而不是「已展开的 id」，新增条目默认就是展开的。
+ * 记「已展开的 id」：进入模块时条目默认全部收起；点「添加条目」后新条目自动展开方便填写。
  * Editor.vue 给本组件绑了 :key=sectionId，切模块时状态自然重置。
  */
-const collapsedIds = reactive(new Set<string>());
+const expandedIds = reactive(new Set<string>());
 
 function field(item: TSectionItem, key: string): string | number | boolean | string[] | undefined {
   return (item as Record<string, unknown>)[key] as string | number | boolean | string[] | undefined;
@@ -44,22 +45,30 @@ function text(item: TSectionItem, key: string): string {
 }
 
 function isOpen(item: TSectionItem): boolean {
-  return !collapsedIds.has(itemId(item));
+  return expandedIds.has(itemId(item));
 }
 
 function toggle(item: TSectionItem) {
   const id = itemId(item);
-  if (collapsedIds.has(id)) collapsedIds.delete(id);
-  else collapsedIds.add(id);
+  if (expandedIds.has(id)) expandedIds.delete(id);
+  else expandedIds.add(id);
 }
 
 const allCollapsed = computed(
-  () => items.value.length > 0 && items.value.every((item) => collapsedIds.has(itemId(item)))
+  () => items.value.length > 0 && items.value.every((item) => !expandedIds.has(itemId(item)))
 );
 
 function toggleAll() {
-  if (allCollapsed.value) collapsedIds.clear();
-  else items.value.forEach((item) => collapsedIds.add(itemId(item)));
+  if (allCollapsed.value) items.value.forEach((item) => expandedIds.add(itemId(item)));
+  else expandedIds.clear();
+}
+
+function addItem() {
+  if (!section.value) return;
+  const before = new Set(items.value.map((item) => itemId(item)));
+  resumeStore.addItem(section.value.id);
+  const created = items.value.find((item) => !before.has(itemId(item)));
+  if (created) expandedIds.add(itemId(created));
 }
 
 /** 收起后卡片只剩这一行，所以标题要用条目自己的内容，不能是「项目」这种类型名 */
@@ -95,7 +104,7 @@ function itemMeta(item: TSectionItem): string {
     case 'education':
       return [text(item, 'degree'), text(item, 'major'), dateRange(item)].filter(Boolean).join(' · ');
     case 'skills':
-      return `熟练度 ${Number(field(item, 'level') || 3)}/5`;
+      return text(item, 'description') || `熟练度 ${Number(field(item, 'level') || 3)}/5`;
     case 'projects':
       return text(item, 'url');
     case 'languages':
@@ -113,7 +122,7 @@ function patch(item: TSectionItem, data: Record<string, unknown>) {
 function remove(item: TSectionItem) {
   if (!section.value) return;
   const id = itemId(item);
-  collapsedIds.delete(id);
+  expandedIds.delete(id);
   resumeStore.removeItem(section.value.id, id);
 }
 
@@ -141,7 +150,7 @@ async function removeSection() {
       <el-button
         v-if="section.type !== 'summary'"
         size="small"
-        @click="resumeStore.addItem(section.id)"
+        @click="addItem"
       >
         添加条目
       </el-button>
@@ -151,10 +160,9 @@ async function removeSection() {
     </div>
 
     <!-- 个人简介只有一段正文，没有条目列表 -->
-    <el-input
+    <RichTextArea
       v-if="section.type === 'summary'"
       :model-value="section.content || ''"
-      type="textarea"
       :rows="5"
       placeholder="简要介绍你的背景与优势"
       @update:model-value="(v: string) => resumeStore.updateSectionContent(section!.id, v)"
@@ -234,7 +242,11 @@ async function removeSection() {
                       </el-form-item>
                     </div>
                     <el-form-item label="描述">
-                      <el-input :model-value="text(raw, 'description')" type="textarea" :rows="3" @update:model-value="(v: string) => patch(raw, { description: v })" />
+                      <RichTextArea
+                        :model-value="text(raw, 'description')"
+                        :rows="3"
+                        @update:model-value="(v: string) => patch(raw, { description: v })"
+                      />
                     </el-form-item>
                   </template>
 
@@ -258,6 +270,14 @@ async function removeSection() {
                         <el-input :model-value="text(raw, 'endDate')" @update:model-value="(v: string) => patch(raw, { endDate: v })" />
                       </el-form-item>
                     </div>
+                    <el-form-item label="描述">
+                      <RichTextArea
+                        :model-value="text(raw, 'description')"
+                        :rows="3"
+                        placeholder="主修课程、获奖、论文或其他补充说明"
+                        @update:model-value="(v: string) => patch(raw, { description: v })"
+                      />
+                    </el-form-item>
                   </template>
 
                   <template v-else-if="section!.type === 'skills'">
@@ -274,6 +294,14 @@ async function removeSection() {
                         @update:model-value="(v: number | number[]) => patch(raw, { level: Array.isArray(v) ? v[0] : v })"
                       />
                     </el-form-item>
+                    <el-form-item label="描述">
+                      <RichTextArea
+                        :model-value="text(raw, 'description')"
+                        :rows="3"
+                        placeholder="说明掌握范围、技术细节或实践经验"
+                        @update:model-value="(v: string) => patch(raw, { description: v })"
+                      />
+                    </el-form-item>
                   </template>
 
                   <template v-else-if="section!.type === 'projects'">
@@ -284,7 +312,11 @@ async function removeSection() {
                       <el-input :model-value="text(raw, 'url')" @update:model-value="(v: string) => patch(raw, { url: v })" />
                     </el-form-item>
                     <el-form-item label="描述">
-                      <el-input :model-value="text(raw, 'description')" type="textarea" :rows="3" @update:model-value="(v: string) => patch(raw, { description: v })" />
+                      <RichTextArea
+                        :model-value="text(raw, 'description')"
+                        :rows="3"
+                        @update:model-value="(v: string) => patch(raw, { description: v })"
+                      />
                     </el-form-item>
                   </template>
 
@@ -307,9 +339,8 @@ async function removeSection() {
                       />
                     </el-form-item>
                     <el-form-item label="描述">
-                      <el-input
+                      <RichTextArea
                         :model-value="text(raw, 'description')"
-                        type="textarea"
                         :rows="2"
                         @update:model-value="(v: string) => patch(raw, { description: v })"
                       />

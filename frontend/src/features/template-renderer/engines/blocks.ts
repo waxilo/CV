@@ -8,7 +8,7 @@
 import type { ITemplateBlock, ITemplateConfigV2, IBlockStyle } from '@cv/template-schema';
 import type { IResumeData, IResumeSection, TSectionItem } from '/@/types/resume';
 import type { IRenderContext } from '../context';
-import { escapeHtml } from '../helpers';
+import { escapeHtml, richTextToHtml } from '../helpers';
 import { sanitizeHtml } from '../sanitize';
 import { renderTemplateSource } from '../template-lang';
 
@@ -55,6 +55,8 @@ function renderBasics(data: IResumeData): string {
     <ul class="cv-contacts">
       ${b.email ? `<li>${escapeHtml(b.email)}</li>` : ''}
       ${b.phone ? `<li>${escapeHtml(b.phone)}</li>` : ''}
+      ${b.birthDate ? `<li>出生日期：${escapeHtml(b.birthDate)}</li>` : ''}
+      ${b.graduationDate ? `<li>毕业日期：${escapeHtml(b.graduationDate)}</li>` : ''}
       ${b.location ? `<li>${escapeHtml(b.location)}</li>` : ''}
       ${b.url ? `<li>${escapeHtml(b.url)}</li>` : ''}
     </ul>
@@ -71,11 +73,16 @@ function renderAvatar(data: IResumeData): string {
   return `<div class="cv-avatar"><img src="${escapeHtml(url)}" alt="avatar" /></div>`;
 }
 
+function richDesc(text: string): string {
+  if (!text) return '';
+  return sanitizeHtml(richTextToHtml(text));
+}
+
 function renderSectionBody(section: IResumeSection): string {
   const items = visibleItems(section);
 
   if (section.type === 'summary') {
-    return `<p class="cv-summary">${escapeHtml(section.content || '')}</p>`;
+    return `<p class="cv-summary">${richDesc(section.content || '')}</p>`;
   }
 
   if (section.type === 'experience') {
@@ -88,7 +95,7 @@ function renderSectionBody(section: IResumeSection): string {
         <span>${escapeHtml(f(item, 'startDate'))} – ${escapeHtml(
           f(item, 'endDate') || '至今'
         )}</span></div>
-        <p class="cv-desc">${escapeHtml(f(item, 'description'))}</p></div>`
+        <p class="cv-desc">${richDesc(f(item, 'description'))}</p></div>`
       )
       .join('')}</div>`;
   }
@@ -101,7 +108,7 @@ function renderSectionBody(section: IResumeSection): string {
           f(item, 'degree')
         )} ${escapeHtml(f(item, 'major'))}</strong>
         <span>${escapeHtml(f(item, 'startDate'))} – ${escapeHtml(f(item, 'endDate'))}</span></div>
-        <p class="cv-desc">${escapeHtml(f(item, 'description'))}</p></div>`
+        <p class="cv-desc">${richDesc(f(item, 'description'))}</p></div>`
       )
       .join('')}</div>`;
   }
@@ -110,7 +117,8 @@ function renderSectionBody(section: IResumeSection): string {
     return `<div class="cv-skills">${items
       .map(
         (item) => `<div class="cv-skill"><span>${escapeHtml(f(item, 'name'))}</span>
-        <div class="cv-bar"><i style="width:${(n(item, 'level') / 5) * 100}%"></i></div></div>`
+        <div class="cv-bar"><i style="width:${(n(item, 'level') / 5) * 100}%"></i></div>
+        ${f(item, 'description') ? `<p class="cv-desc">${richDesc(f(item, 'description'))}</p>` : ''}</div>`
       )
       .join('')}</div>`;
   }
@@ -121,7 +129,7 @@ function renderSectionBody(section: IResumeSection): string {
         (item) => `<div class="cv-entry">
         <div class="cv-entry-head"><strong>${escapeHtml(f(item, 'name'))}</strong>
         <span>${escapeHtml(f(item, 'startDate'))} – ${escapeHtml(f(item, 'endDate'))}</span></div>
-        <p class="cv-desc">${escapeHtml(f(item, 'description'))}</p></div>`
+        <p class="cv-desc">${richDesc(f(item, 'description'))}</p></div>`
       )
       .join('')}</div>`;
   }
@@ -140,7 +148,7 @@ function renderSectionBody(section: IResumeSection): string {
       (item) => `<div class="cv-entry"><strong>${escapeHtml(
         f(item, 'title') || f(item, 'name')
       )}</strong>
-      <p class="cv-desc">${escapeHtml(f(item, 'description'))}</p></div>`
+      <p class="cv-desc">${richDesc(f(item, 'description'))}</p></div>`
     )
     .join('')}</div>`;
 }
@@ -253,16 +261,21 @@ export function blocksBaseCss(): string {
 .cv-row { display: flex; flex-wrap: wrap; width: 100%; }
 .cv-col { min-width: 0; }
 ${Array.from({ length: 12 }, (_, i) => `.cv-col-${i + 1}{ width:${((i + 1) / 12) * 100}%; }`).join('\n')}
-.cv-name { font-size: 1.7em; line-height: 1.2; margin: 0 0 8px; }
+.cv-name {
+  font-size: 1.7em; line-height: 1.2; margin: 0 0 8px;
+  font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif;
+}
 .cv-headline { opacity: 0.9; margin: 0 0 16px; }
 .cv-contacts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.9em; }
 .cv-section { margin-bottom: 16px; }
 .cv-section-title {
   font-size: 1.05em; color: var(--tpl-primary-color);
   border-bottom: 2px solid var(--tpl-primary-color); padding-bottom: 4px; margin: 0 0 10px;
+  font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif;
 }
 .cv-entry { margin-bottom: 12px; break-inside: avoid; }
 .cv-entry-head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.cv-entry-head strong { font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif; }
 .cv-entry-head span { color: var(--tpl-muted-color); white-space: nowrap; font-size: 0.9em; }
 .cv-desc, .cv-summary { white-space: pre-wrap; color: #334155; margin: 0; }
 .cv-skills { display: flex; flex-direction: column; gap: 8px; }

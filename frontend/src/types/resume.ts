@@ -23,6 +23,18 @@ export interface IResumeBasics {
   location: string;
   url: string;
   avatarUrl: string;
+  /** 出生年月日，自由文本，如 2000.01 或 2000-01-15 */
+  birthDate: string;
+  /** 毕业年月日，自由文本，如 2023.06 */
+  graduationDate: string;
+  /** 性别，如 男 / 女 */
+  gender: string;
+  /** 年龄，如 24 */
+  age: string;
+  /** 工作年限，如 3年 */
+  workYears: string;
+  /** 微信号 */
+  wechat: string;
 }
 
 export interface IExperienceItem {
@@ -53,6 +65,8 @@ export interface ISkillItem {
   name: string;
   level: number;
   keywords: string[];
+  /** 技能描述，用于展开说明掌握范围与实践经验 */
+  description: string;
   visible: boolean;
 }
 

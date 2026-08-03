@@ -158,6 +158,58 @@ export function nl2br(value: unknown): SafeHtml {
   return markSafe(escaped.replace(/\r?\n/g, '<br />'));
 }
 
+/**
+ * 简历描述类纯文本 → 最小 HTML。
+ * 先转义，再把 **加粗** 转成 &lt;strong&gt;，换行转 &lt;br /&gt;。
+ */
+export function richTextToHtml(text: string): string {
+  if (!text) return '';
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  const withBold = escaped.replace(/\*\*((?:[^*]|\*(?!\*))+)\*\*/g, '<strong>$1</strong>');
+  return withBold.replace(/\r?\n/g, '<br />');
+}
+
+/**
+ * 对选区切换 **加粗** 包裹。无选区时插入一对 `**` 并把光标放中间。
+ */
+export function toggleBoldMarkers(
+  value: string,
+  start: number,
+  end: number
+): { value: string; start: number; end: number } {
+  const safeStart = Math.max(0, Math.min(start, value.length));
+  const safeEnd = Math.max(safeStart, Math.min(end, value.length));
+
+  if (safeStart === safeEnd) {
+    const next = `${value.slice(0, safeStart)}****${value.slice(safeEnd)}`;
+    return { value: next, start: safeStart + 2, end: safeStart + 2 };
+  }
+
+  const selected = value.slice(safeStart, safeEnd);
+  if (selected.startsWith('**') && selected.endsWith('**') && selected.length >= 4) {
+    const inner = selected.slice(2, -2);
+    const next = `${value.slice(0, safeStart)}${inner}${value.slice(safeEnd)}`;
+    return { value: next, start: safeStart, end: safeStart + inner.length };
+  }
+
+  if (
+    safeStart >= 2 &&
+    safeEnd + 2 <= value.length &&
+    value.slice(safeStart - 2, safeStart) === '**' &&
+    value.slice(safeEnd, safeEnd + 2) === '**'
+  ) {
+    const next = `${value.slice(0, safeStart - 2)}${selected}${value.slice(safeEnd + 2)}`;
+    return { value: next, start: safeStart - 2, end: safeEnd - 2 };
+  }
+
+  const wrapped = `**${selected}**`;
+  const next = `${value.slice(0, safeStart)}${wrapped}${value.slice(safeEnd)}`;
+  return { value: next, start: safeStart, end: safeStart + wrapped.length };
+}
+
 /** 空值兜底。空字符串、null、undefined、空数组都算空 */
 export function fallback(value: unknown, replacement: unknown = ''): unknown {
   if (value == null) return replacement;

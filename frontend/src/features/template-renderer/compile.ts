@@ -70,7 +70,6 @@ ${pagedCss()}
     box-shadow: none;
     margin: 0;
   }
-  ${SCOPE_SELECTOR}::after { display: none; }
 }
 `;
 }
@@ -88,20 +87,6 @@ ${SCOPE_SELECTOR} .no-break {
 ${SCOPE_SELECTOR} img,
 ${SCOPE_SELECTOR} svg,
 ${SCOPE_SELECTOR} table { max-width: 100%; }
-${SCOPE_SELECTOR}::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 2147483647;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0,
-    transparent calc(297mm - 1px),
-    rgba(148, 163, 184, 0.45) calc(297mm - 1px),
-    rgba(148, 163, 184, 0.45) 297mm
-  );
-}
 `;
 }
 

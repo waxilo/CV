@@ -13,7 +13,7 @@
 
 import { CONTEXT_VERSION, type ITemplateConfigV2, type TVariableValue } from '@cv/template-schema';
 import type { IResumeData, IResumeSection, TSectionItem, TSectionType } from '/@/types/resume';
-import { dateRange as fmtDateRange, date as fmtDate, HELPERS } from './helpers';
+import { dateRange as fmtDateRange, date as fmtDate, HELPERS, richTextToHtml } from './helpers';
 import { sanitizeHtml } from './sanitize';
 
 /* ============================================================
@@ -35,6 +35,15 @@ export interface IRenderBasics {
   location: string;
   url: string;
   avatarUrl: string;
+  birthDate: string;
+  graduationDate: string;
+  gender: string;
+  age: string;
+  workYears: string;
+  /** 微信号 */
+  wechat: string;
+  /** 如「男 | 年龄: 24 | 工作年限: 3年」，空则不展示 */
+  demographics: string;
   initial: string;
   contacts: IRenderContact[];
 }
@@ -168,10 +177,24 @@ export function resolveVars(
  * basics
  * ============================================================ */
 
+function buildDemographics(basics: IResumeData['basics']): string {
+  const parts: string[] = [];
+  const gender = (basics.gender || '').trim();
+  const age = (basics.age || '').trim();
+  const workYears = (basics.workYears || '').trim();
+  if (gender) parts.push(gender);
+  if (age) parts.push(`年龄: ${age}`);
+  if (workYears) parts.push(`工作年限: ${workYears}`);
+  return parts.join(' | ');
+}
+
 function buildContacts(basics: IResumeData['basics']): IRenderContact[] {
   const defs: { key: string; label: string; value: string; href: string }[] = [
-    { key: 'email', label: '邮箱', value: basics.email, href: basics.email ? `mailto:${basics.email}` : '' },
     { key: 'phone', label: '电话', value: basics.phone, href: basics.phone ? `tel:${basics.phone}` : '' },
+    { key: 'wechat', label: '微信', value: basics.wechat || '', href: '' },
+    { key: 'email', label: '邮箱', value: basics.email, href: basics.email ? `mailto:${basics.email}` : '' },
+    { key: 'birthDate', label: '出生日期', value: basics.birthDate || '', href: '' },
+    { key: 'graduationDate', label: '毕业日期', value: basics.graduationDate || '', href: '' },
     { key: 'location', label: '所在地', value: basics.location, href: '' },
     { key: 'url', label: '主页', value: basics.url, href: basics.url },
   ];
@@ -196,6 +219,13 @@ function buildBasics(data: IResumeData, allowRemoteImages: boolean): IRenderBasi
     location: b.location || '',
     url: b.url || '',
     avatarUrl: safeAvatarUrl(b.avatarUrl || '', allowRemoteImages),
+    birthDate: b.birthDate || '',
+    graduationDate: b.graduationDate || '',
+    gender: b.gender || '',
+    age: b.age || '',
+    workYears: b.workYears || '',
+    wechat: b.wechat || '',
+    demographics: buildDemographics(b),
     initial: name.trim() ? name.trim().slice(0, 1) : '?',
     contacts: buildContacts(b),
   };
@@ -261,6 +291,7 @@ function normalizeItem(
 
     case 'skills':
       title = field(item, 'name');
+      description = field(item, 'description');
       break;
 
     case 'projects':
@@ -320,19 +351,10 @@ function normalizeItem(
     meta,
     dateRange: range,
     description,
-    descriptionSafe: description ? sanitizeHtml(textToHtml(description)) : '',
+    descriptionSafe: description ? sanitizeHtml(richTextToHtml(description)) : '',
     keywords: keywordsOf(item),
     raw: item,
   };
-}
-
-/** 纯文本转最小 HTML：转义 + 换行成 <br> */
-function textToHtml(text: string): string {
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-  return escaped.replace(/\r?\n/g, '<br />');
 }
 
 /** 自由文本模块：summary，或没有条目但填了 content 的模块 */
@@ -355,7 +377,7 @@ function normalizeSection(section: IResumeSection, options: INormalizeOptions): 
     name: section.name || '',
     isText,
     content,
-    contentSafe: content ? sanitizeHtml(textToHtml(content)) : '',
+    contentSafe: content ? sanitizeHtml(richTextToHtml(content)) : '',
     items,
     isEmpty: items.length === 0 && content.trim() === '',
   };

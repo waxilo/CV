@@ -121,6 +121,9 @@ const MODERN_HTML = `
               {{#if this.raw.level}}
                 <div class="bar"><i style="width:{{this.raw.level | percent(5)}}"></i></div>
               {{/if}}
+              {{#if this.descriptionSafe}}
+                <div class="side-desc">{{& this.descriptionSafe}}</div>
+              {{/if}}
               {{#if this.keywords}}
                 <div class="tags">{{#each this.keywords}}<span>{{this}}</span>{{/each}}</div>
               {{/if}}
@@ -200,7 +203,7 @@ const MODERN_CSS = `
   font-size: 30px; font-weight: 700;
 }
 
-.name { margin: 0 0 4px; font-size: 1.55em; line-height: 1.2; }
+.name { margin: 0 0 4px; font-size: 1.55em; line-height: 1.2; font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif; }
 .headline { margin: 0 0 18px; opacity: 0.85; font-size: 0.95em; }
 
 .contacts { list-style: none; margin: 0 0 22px; padding: 0; font-size: 0.85em; }
@@ -211,10 +214,12 @@ const MODERN_CSS = `
 .side-sec h2 {
   font-size: 0.95em; margin: 0 0 10px; padding-bottom: 5px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+  font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif;
 }
 .side-item { margin-bottom: 10px; break-inside: avoid; }
 .side-item-row { display: flex; justify-content: space-between; gap: 8px; font-size: 0.9em; }
 .side-item-row em { font-style: normal; opacity: 0.7; }
+.side-desc { margin-top: 5px; font-size: 0.82em; opacity: 0.9; white-space: pre-wrap; }
 .bar { height: 5px; margin-top: 5px; background: rgba(255, 255, 255, 0.25); border-radius: 99px; overflow: hidden; }
 .bar i { display: block; height: 100%; background: #fff; }
 
@@ -223,9 +228,11 @@ const MODERN_CSS = `
   font-size: 1.05em; margin: 0 0 12px; padding-bottom: 5px;
   color: var(--tpl-primary-color);
   border-bottom: 2px solid var(--tpl-primary-color);
+  font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif;
 }
 .item { margin-bottom: 13px; break-inside: avoid; }
 .item-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.item-head strong { font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif; }
 .date { flex-shrink: 0; font-size: 0.85em; color: var(--tpl-muted-color); white-space: nowrap; }
 .sub { margin-top: 2px; font-size: 0.92em; color: var(--tpl-muted-color); }
 .rich { margin-top: 5px; white-space: pre-wrap; }
@@ -261,9 +268,19 @@ const CLASSIC_HTML = `
         {{/if}}
 
         {{#if this.type | eq('skills')}}
-          <p class="skill-line">
-            {{#each this.items}}{{#unless @first}}<span class="sep">·</span>{{/unless}}{{this.title}}{{/each}}
-          </p>
+          {{#each this.items}}
+            <div class="item">
+              <div class="item-head">
+                <strong>{{this.title}}</strong>
+              </div>
+              {{#if this.descriptionSafe}}
+                <div class="rich">{{& this.descriptionSafe}}</div>
+              {{/if}}
+              {{#if this.keywords}}
+                <div class="tags">{{#each this.keywords}}<span>{{this}}</span>{{/each}}</div>
+              {{/if}}
+            </div>
+          {{/each}}
         {{else}}
           {{#each this.items}}
             <div class="item">
@@ -297,7 +314,10 @@ const CLASSIC_CSS = `
 }
 
 .head { text-align: center; padding-bottom: 14px; border-bottom: 3px double var(--tpl-primary-color); }
-.name { margin: 0; font-size: 1.9em; letter-spacing: 0.08em; color: var(--tpl-primary-color); }
+.name {
+  margin: 0; font-size: 1.9em; letter-spacing: 0.08em; color: var(--tpl-primary-color);
+  font-family: var(--tpl-heading-font-family), var(--tpl-font-family), serif;
+}
 .headline { margin: 6px 0 0; font-size: 1em; color: var(--tpl-muted-color); }
 .contacts { margin: 10px 0 0; font-size: 0.85em; color: var(--tpl-muted-color); }
 .sep { margin: 0 7px; opacity: 0.5; }
@@ -308,10 +328,12 @@ const CLASSIC_CSS = `
   text-transform: uppercase; letter-spacing: 0.1em;
   color: var(--tpl-primary-color);
   border-bottom: 1px solid #cbd5e1;
+  font-family: var(--tpl-heading-font-family), var(--tpl-font-family), serif;
 }
 
 .item { margin-bottom: 12px; break-inside: avoid; }
 .item-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.item-head strong { font-family: var(--tpl-heading-font-family), var(--tpl-font-family), serif; }
 .date { flex-shrink: 0; font-size: 0.85em; color: var(--tpl-muted-color); white-space: nowrap; }
 .sub { margin-top: 2px; font-size: 0.92em; color: var(--tpl-muted-color); }
 .sub em { font-style: italic; }
@@ -377,7 +399,10 @@ const MINIMAL_CSS = `
 }
 
 .head { margin-bottom: 34px; }
-.name { margin: 0; font-size: 2.1em; font-weight: 300; letter-spacing: 0.04em; }
+.name {
+  margin: 0; font-size: 2.1em; font-weight: 300; letter-spacing: 0.04em;
+  font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif;
+}
 .headline { margin: 4px 0 0; color: var(--tpl-muted-color); font-weight: 300; }
 .contacts {
   list-style: none; display: flex; flex-wrap: wrap; gap: 16px;
@@ -389,17 +414,203 @@ const MINIMAL_CSS = `
   width: 92px; flex-shrink: 0; margin: 0;
   font-size: 0.78em; font-weight: 500; text-transform: uppercase;
   letter-spacing: 0.14em; color: var(--tpl-primary-color); padding-top: 3px;
+  font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif;
 }
 .sec-body { flex: 1; min-width: 0; }
 
 .item { display: flex; gap: 16px; margin-bottom: 16px; break-inside: avoid; }
 .item-main { flex: 1; min-width: 0; }
-.item-main strong { font-weight: 500; }
+.item-main strong {
+  font-weight: 500;
+  font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif;
+}
 .sub { display: block; margin-top: 1px; font-size: 0.9em; color: var(--tpl-muted-color); }
 .date { flex-shrink: 0; font-size: 0.8em; color: var(--tpl-muted-color); white-space: nowrap; padding-top: 2px; }
 .rich { margin-top: 5px; white-space: pre-wrap; font-size: 0.95em; }
 
 .tags { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; font-size: 0.85em; color: var(--tpl-muted-color); }
+`;
+
+/* ============================================================
+ * Word 极简：仿 Word 默认简历的紧凑黑白排版
+ * ============================================================ */
+
+const TECHNICAL_HTML = `
+<article class="cv">
+  <header class="head">
+    <h1 class="name">{{basics.name | default('你的姓名')}}</h1>
+    {{#if basics.demographics}}
+      <p class="profile">{{basics.demographics}}</p>
+    {{/if}}
+    {{#if basics.headline}}<p class="headline">{{basics.headline}}</p>{{/if}}
+    {{#if basics.contacts}}
+      <p class="contacts">
+        {{#each basics.contacts}}
+          {{#unless @first}}<span class="sep">|</span>{{/unless}}
+          <span class="contact">{{this.label}}：{{this.value}}</span>
+        {{/each}}
+      </p>
+    {{/if}}
+  </header>
+
+  {{#each sections}}
+    {{#unless this.isEmpty}}
+      <section class="sec sec--{{this.type}}">
+        <h2 class="sec-title">{{this.name}}</h2>
+
+        {{#if this.isText}}
+          <div class="rich summary">{{& this.contentSafe}}</div>
+        {{/if}}
+
+        {{#if this.type | eq('skills')}}
+          {{#each this.items}}
+            <div class="skill-item">
+              <h3>{{this.title}}</h3>
+              {{#if this.descriptionSafe}}
+                <div class="rich">{{& this.descriptionSafe}}</div>
+              {{else}}
+                {{#if this.keywords}}
+                  <p>{{#each this.keywords}}{{#unless @first}}、{{/unless}}{{this}}{{/each}}</p>
+                {{/if}}
+              {{/if}}
+            </div>
+          {{/each}}
+        {{else}}
+          {{#if this.type | eq('experience')}}
+            {{#each this.items}}
+              <div class="item">
+                <div class="item-head">
+                  <strong>{{this.raw.company}}</strong>
+                  {{#if this.dateRange}}<span class="date">（{{this.dateRange}}）</span>{{/if}}
+                </div>
+                {{#if this.raw.position}}
+                  <div class="sub">{{this.raw.position}}{{#if this.meta}} · {{this.meta}}{{/if}}</div>
+                {{/if}}
+                {{#if this.descriptionSafe}}<div class="rich">{{& this.descriptionSafe}}</div>{{/if}}
+              </div>
+            {{/each}}
+          {{else}}
+            {{#each this.items}}
+              <div class="item">
+                <div class="item-head">
+                  <strong>{{this.title}}</strong>
+                  {{#if this.dateRange}}<span class="date">（{{this.dateRange}}）</span>{{/if}}
+                </div>
+                {{#if this.subtitle}}
+                  <div class="sub">{{this.subtitle}}{{#if this.meta}} · {{this.meta}}{{/if}}</div>
+                {{/if}}
+                {{#if this.descriptionSafe}}<div class="rich">{{& this.descriptionSafe}}</div>{{/if}}
+                {{#if this.keywords}}
+                  <p class="keyword-line">{{#each this.keywords}}{{#unless @first}}、{{/unless}}{{this}}{{/each}}</p>
+                {{/if}}
+              </div>
+            {{/each}}
+          {{/if}}
+        {{/if}}
+      </section>
+    {{/unless}}
+  {{/each}}
+</article>
+`;
+
+const TECHNICAL_CSS = `
+.cv {
+  padding: var(--page-margin-top) var(--page-margin-right) var(--page-margin-bottom) var(--page-margin-left);
+  font-family: var(--tpl-font-family), 'Songti SC', 'SimSun', serif;
+  font-size: var(--tpl-font-size);
+  line-height: var(--tpl-line-height);
+  color: var(--tpl-text-color);
+  background: var(--tpl-background-color);
+}
+
+.head {
+  margin-bottom: 17px;
+}
+.name {
+  margin: 0 0 10px;
+  font-family: var(--tpl-heading-font-family), 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 1.42em;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.profile {
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+.headline {
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+.contacts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 7px;
+  margin: 0;
+  font-size: 0.88em;
+}
+.sep {
+  color: #777;
+}
+
+.sec {
+  margin: 0 0 var(--tpl-section-gap);
+}
+.sec-title {
+  margin: 0 0 10px;
+  font-family: var(--tpl-heading-font-family), 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 1.16em;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--tpl-text-color);
+}
+.item,
+.skill-item {
+  margin: 0 0 11px;
+  break-inside: avoid;
+}
+.item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 7px;
+}
+.item-head strong {
+  font-family: var(--tpl-heading-font-family), 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 1em;
+  font-weight: 700;
+}
+.date {
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+.sub {
+  margin-top: 3px;
+  font-weight: 700;
+}
+.rich {
+  margin-top: 4px;
+  white-space: pre-wrap;
+  text-align: justify;
+}
+.summary {
+  margin-top: 0;
+}
+.skill-item h3 {
+  margin: 0 0 5px;
+  font-family: var(--tpl-heading-font-family), 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 0.98em;
+  font-weight: 700;
+}
+.skill-item p,
+.keyword-line {
+  margin: 0;
+  text-align: justify;
+}
+
+.sec--skills .skill-item {
+  padding-left: 0;
+}
 `;
 
 /* ============================================================
@@ -456,6 +667,30 @@ export const BUILTIN_TEMPLATES: IBuiltinTemplate[] = [
       css: MINIMAL_CSS,
       tags: ['单栏', '极简'],
       variableOverrides: { sectionGap: '26px', mutedColor: '#94a3b8' },
+    }),
+  },
+  {
+    id: 'technical',
+    name: 'Word 极简',
+    description: '紧凑黑白单栏排版，接近 Word 默认简历观感',
+    config: build({
+      title: 'Word 极简',
+      layout: 'single-column',
+      primaryColor: '#111111',
+      fontFamily: 'Songti SC, SimSun',
+      fontSize: 12,
+      spacing: 1.5,
+      html: TECHNICAL_HTML,
+      css: TECHNICAL_CSS,
+      tags: ['单栏', '技术', '黑白', 'Word', '打印友好'],
+      variableOverrides: {
+        sectionGap: '18px',
+        textColor: '#111111',
+        mutedColor: '#555555',
+        backgroundColor: '#ffffff',
+        showAvatar: false,
+        headingFontFamily: 'PingFang SC, Microsoft YaHei',
+      },
     }),
   },
 ];

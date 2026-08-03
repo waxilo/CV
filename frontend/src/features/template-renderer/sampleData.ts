@@ -15,12 +15,18 @@ export function createSampleResumeData(): IResumeData {
   return {
     basics: {
       name: '陈昊',
-      headline: 'Java 后端开发工程师',
+      headline: '8年 Java 后端开发经验 | 电商与支付 | 高并发微服务',
       email: 'chenhao.dev@example.com',
       phone: '139-0000-0000',
       location: '北京',
       url: 'https://github.com/example',
       avatarUrl: '',
+      birthDate: '1996.03',
+      graduationDate: '2018.06',
+      gender: '男',
+      age: '30',
+      workYears: '8年',
+      wechat: '',
     },
     sections: [
       {
@@ -92,18 +98,19 @@ export function createSampleResumeData(): IResumeData {
         visible: true,
         order: 3,
         items: [
-          { id: 's1', name: 'Java', level: 5, keywords: ['JVM 调优', '并发编程'], visible: true },
+          { id: 's1', name: 'Java', level: 5, keywords: ['JVM 调优', '并发编程'], description: '扎实的 Java 基础与并发编程能力，熟悉 JVM 调优与常见性能排查。', visible: true },
           {
             id: 's2',
             name: 'Spring Boot / Spring Cloud',
             level: 5,
             keywords: ['微服务', 'Spring Cloud Alibaba'],
+            description: '熟练使用 Spring Boot / Spring Cloud 构建微服务，具备服务治理与高可用实践经验。',
             visible: true,
           },
-          { id: 's3', name: 'MySQL', level: 4, keywords: ['分库分表', 'SQL 调优'], visible: true },
-          { id: 's4', name: 'Redis', level: 4, keywords: ['缓存架构', '分布式锁'], visible: true },
-          { id: 's5', name: 'Kafka / RocketMQ', level: 4, keywords: ['消息队列'], visible: true },
-          { id: 's6', name: 'Docker / Kubernetes', level: 3, keywords: ['容器化部署'], visible: true },
+          { id: 's3', name: 'MySQL', level: 4, keywords: ['分库分表', 'SQL 调优'], description: '熟悉索引设计、SQL 调优与分库分表方案。', visible: true },
+          { id: 's4', name: 'Redis', level: 4, keywords: ['缓存架构', '分布式锁'], description: '掌握缓存架构设计、分布式锁与常见热点问题处理。', visible: true },
+          { id: 's5', name: 'Kafka / RocketMQ', level: 4, keywords: ['消息队列'], description: '具备消息队列异步解耦、削峰填谷与可靠性保障经验。', visible: true },
+          { id: 's6', name: 'Docker / Kubernetes', level: 3, keywords: ['容器化部署'], description: '了解容器化部署与基础编排运维。', visible: true },
         ],
       },
       {

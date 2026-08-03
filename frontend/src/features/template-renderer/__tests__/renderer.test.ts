@@ -20,6 +20,8 @@ import {
   sanitizeCss,
   sanitizeHtml,
   scopeCss,
+  richTextToHtml,
+  toggleBoldMarkers,
   validateCustomCss,
   validateTemplateConfig,
 } from '../index';
@@ -223,6 +225,34 @@ describe('sanitize', () => {
 
   it('清洗 CSS 时把危险规则替换为注释', () => {
     expect(sanitizeCss('h1{color:red} @import "x";')).toContain('blocked');
+  });
+});
+
+describe('richTextToHtml / toggleBoldMarkers', () => {
+  it('把 **加粗** 转为 strong，并转义 HTML', () => {
+    expect(richTextToHtml('负责 **订单** 中心\n优化')).toBe(
+      '负责 <strong>订单</strong> 中心<br />优化'
+    );
+    expect(richTextToHtml('<script>x</script> **ok**')).toContain('&lt;script&gt;');
+    expect(richTextToHtml('<script>x</script> **ok**')).toContain('<strong>ok</strong>');
+  });
+
+  it('对选区切换加粗标记', () => {
+    expect(toggleBoldMarkers('hello world', 0, 5)).toEqual({
+      value: '**hello** world',
+      start: 0,
+      end: 9,
+    });
+    expect(toggleBoldMarkers('**hello** world', 0, 9)).toEqual({
+      value: 'hello world',
+      start: 0,
+      end: 5,
+    });
+    expect(toggleBoldMarkers('hello', 5, 5)).toEqual({
+      value: 'hello****',
+      start: 7,
+      end: 7,
+    });
   });
 });
 

@@ -43,7 +43,7 @@ function createEmptyItem(type: TSectionType): Record<string, unknown> {
         visible: true,
       };
     case 'skills':
-      return { id, name: '', level: 3, keywords: [], visible: true };
+      return { id, name: '', level: 3, keywords: [], description: '', visible: true };
     case 'projects':
       return {
         id,
@@ -320,6 +320,21 @@ export const useResumeStore = defineStore('resume', () => {
     markDirty();
   }
 
+  /**
+   * 更新页边距（毫米，四向统一）。
+   * 写入 resume.metadata.page.margin，渲染时覆盖模板声明的四向边距。
+   */
+  function updatePageMargin(marginMm: number) {
+    if (!data.value) return;
+    const margin = Math.min(50, Math.max(0, Math.round(marginMm * 10) / 10));
+    data.value.metadata.page = {
+      ...(data.value.metadata.page || {}),
+      format: 'a4',
+      margin,
+    };
+    markDirty();
+  }
+
   function setTitle(next: string) {
     title.value = next;
     markDirty();
@@ -355,6 +370,7 @@ export const useResumeStore = defineStore('resume', () => {
     updateTheme,
     updateTemplateVar,
     resetTemplateVars,
+    updatePageMargin,
     setTitle,
   };
 });

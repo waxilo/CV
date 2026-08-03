@@ -1,0 +1,211 @@
+{
+  "basics": {
+    "name": "王贤龙",
+    "headline": "3 年 Java 后端开发经验 ｜ 金融业务系统 ｜ 高并发分布式系统",
+    "email": "waxilo2024@qq.com",
+    "phone": "19098779775",
+    "location": "深圳",
+    "url": "",
+    "avatarUrl": "",
+    "birthDate": "",
+    "graduationDate": "2023.6",
+    "gender": "男",
+    "age": "24",
+    "workYears": "3年",
+    "wechat": "19098779775"
+  },
+  "sections": [
+    {
+      "id": "education",
+      "type": "education",
+      "name": "教育经历",
+      "visible": true,
+      "order": 0,
+      "items": [
+        {
+          "id": "ed1",
+          "school": "武汉工程科技学院",
+          "degree": "全日制本科",
+          "major": "计算机科学与技术",
+          "startDate": "2019.9",
+          "endDate": "2023.6",
+          "description": "",
+          "visible": true
+        }
+      ]
+    },
+    {
+      "id": "skills",
+      "type": "skills",
+      "name": "专业技能",
+      "visible": true,
+      "order": 1,
+      "items": [
+        {
+          "id": "sk1",
+          "name": "Java 后端开发",
+          "level": 5,
+          "keywords": [],
+          "description": "1.熟练掌握 Java 基础、多线程并发编程、集合框架、IO、JVM 原理及性能分析。\n2.熟悉面向对象设计思想及常用设计模式，包括策略模式、模板方法模式、工厂模式等。\n3.具备复杂业务系统开发经验，能够独立完成需求分析、功能设计、开发实现及问题排查。",
+          "visible": true
+        },
+        {
+          "id": "sk2",
+          "name": "Spring 技术体系",
+          "level": 5,
+          "keywords": [],
+          "description": "4.熟练使用 Spring、SpringMVC、SpringBoot 等主流开发框架。\n5.熟悉 MyBatis、Spring Data JPA 等数据访问技术。\n6.熟悉 RESTful API 设计及企业级后端服务开发。",
+          "visible": true
+        },
+        {
+          "id": "sk3",
+          "name": "数据库",
+          "level": 4,
+          "keywords": [],
+          "description": "7.熟练使用 MySQL，掌握数据库表结构设计、索引优化、SQL 调优及慢 SQL 分析。\n8.熟悉大数据量场景下的数据查询优化。",
+          "visible": true
+        },
+        {
+          "id": "sk4",
+          "name": "缓存与消息中间件",
+          "level": 4,
+          "keywords": [],
+          "description": "9.熟练使用 Redis，具备缓存设计、分布式锁、限流、防重复提交等实践经验。\n10.熟悉 Kafka、TDMQ 等消息队列，具备消息异步处理、削峰填谷、业务解耦经验。",
+          "visible": true
+        },
+        {
+          "id": "sk5",
+          "name": "分布式系统",
+          "level": 4,
+          "keywords": [],
+          "description": "11.熟悉分布式系统常见解决方案，包括分布式锁、分布式限流、服务治理、消息可靠性。\n12.熟悉 Dubbo RPC 框架及服务调用机制。\n13.熟悉 Netty 网络通信框架，具备高并发长连接服务开发经验。",
+          "visible": true
+        },
+        {
+          "id": "sk6",
+          "name": "数据处理与稳定性建设",
+          "level": 4,
+          "keywords": [],
+          "description": "14.熟悉 Flink 实时计算框架及 Doris OLAP 数据分析平台。\n15.熟悉 Prometheus、Grafana 监控体系建设。\n16.具备动态线程池治理、线上问题定位、系统性能优化经验。",
+          "visible": true
+        },
+        {
+          "id": "sk7",
+          "name": "工程能力",
+          "level": 4,
+          "keywords": [],
+          "description": "17.熟悉 Linux 常用命令及服务器环境部署。\n18.熟悉 Docker 容器化部署。\n19.熟悉 Jenkins 持续集成流程。\n20.熟练使用 Claude Code、Codex、DeepSeek 等 AI 辅助开发工具提升研发效率。",
+          "visible": true
+        }
+      ]
+    },
+    {
+      "id": "experience",
+      "type": "experience",
+      "name": "工作经历",
+      "visible": true,
+      "order": 2,
+      "items": [
+        {
+          "id": "exp1",
+          "company": "港证软件（深圳）有限公司",
+          "position": "Java开发工程师",
+          "location": "深圳",
+          "startDate": "2026.01",
+          "endDate": "",
+          "isCurrent": true,
+          "description": "业务简述：为盈立证券APP提供技术支撑，并为其他券商公司提供技术支持。\n业务领域：金融证券 ｜ 部门：开发部 ｜ 岗位：Java开发工程师\n个人职责：\n1.负责证券 SaaS 平台核心业务模块研发，涉及持仓、清算、公司行动、结单等金融核心业务流程。\n2.参与系统需求分析、技术方案设计、功能开发及线上问题排查，保障业务系统稳定运行。\n3.参与系统性能优化和稳定性建设，提升系统可靠性和维护效率。",
+          "visible": true
+        },
+        {
+          "id": "exp2",
+          "company": "小花网络科技（深圳）有限公司",
+          "position": "Java开发工程师",
+          "location": "深圳",
+          "startDate": "2023.3",
+          "endDate": "2025.12",
+          "isCurrent": false,
+          "description": "业务简述：为小花钱包APP提供技术支撑。\n业务领域：金融借款 ｜ 部门：业务研发部 ｜ 岗位：Java开发工程师\n个人职责：\n1.负责小花钱包 APP 后端业务系统研发，包括核心业务功能开发、系统维护及版本迭代。\n2.负责第三方渠道接口接入，实现接口鉴权、数据加密及业务流程处理。\n3.参与高并发业务场景优化，提升系统稳定性、可维护性。",
+          "visible": true
+        }
+      ]
+    },
+    {
+      "id": "projects",
+      "type": "projects",
+      "name": "项目经验",
+      "visible": true,
+      "order": 3,
+      "items": [
+        {
+          "id": "p1",
+          "name": "证券 SaaS 清算系统",
+          "url": "",
+          "startDate": "2026.01",
+          "endDate": "",
+          "description": "所属公司：港证软件（深圳）有限公司\n项目简述：面向券商客户提供清算、持仓、公司行动、结单等核心金融服务能力。\n使用技术：SpringBoot + MySQL + Redis\n亮点功能：\n1.参与证券 SaaS 核心业务模块开发，完成业务功能迭代。\n2.参与系统维护、线上问题定位及业务优化。\n3.使用 Redis 优化业务访问性能，提高系统响应能力。",
+          "visible": true
+        },
+        {
+          "id": "p2",
+          "name": "新流撞库",
+          "url": "",
+          "startDate": "2023.3",
+          "endDate": "2025.12",
+          "description": "所属公司：小花网络科技（深圳）有限公司\n项目简述：对接三方推流、调用内部规则与风控，判断可营销用户，是公司获取新流量、新用户的重要途径。\n使用技术：SpringBoot + Mysql + Redis + LiteFlow + DynamicTP + Groovy\n亮点功能：\n1.接口安全交互：各渠道不同的公私钥管理与接口加解密交互，保证系统数据安全。\n2.线程池告警与通知：接入动态线程池监控线程池状态，触发阈值进行飞书告警，降低系统风险，提高健壮性。\n3.并发编程：volatile、CompletableFuture、Atomic多线程相关组件应用，增强系统多线程场景下的可靠性。\n4.数据监控：Prometheus 上报不同级别日志打印量，上报Topic消息堆积量，根据不同指标配置GraFana视图，实现业务数据监控，日常观测系统健康。\n5.Redis分布式锁：多Pod、多线程竞争场景下分布式锁应用，防止相同操作的重复执行。\n6.Redis分布式限流：Redis + Lua脚本实现多Pod场景的全局限流，使用Z-Set结构实现滑动窗口限流器，维护服务稳定性。\n7.TDMQ、Kafka队列解耦：针对不同时效性要求进行解耦与跨服务处理，提高响应速度，缓解系统压力，实现每日5KW+流量处理。\n8.脚本动态对接与加载：基于模板方法模式实现，每个渠道配置差异化参数解析与响应返回，避免业务对接的启停问题。实现高扩展、配置化的对接方式。\n9.流程编排：引入LiteFlow，动态配置特异性流程，避免启停部署。实现高扩展、高效率的流程对接。",
+          "visible": true
+        },
+        {
+          "id": "p3",
+          "name": "埋点系统",
+          "url": "",
+          "startDate": "2023.3",
+          "endDate": "2025.12",
+          "description": "所属公司：小花网络科技（深圳）有限公司\n项目简述：借鉴神策开发的自研埋点系统，实现各端数据上报，支持自定义数据分析指标与问题快速定位。\n使用技术：SpringBoot + Redis + Kafka + Flink + Doris + JFinal\n亮点功能：\n1.流式处理：海量上报数据使用Flink流式处理，使数据处理与落库具有高吞吐量、低延迟，实现每日亿级数据处理。\n2.聚合统计：预聚合配合Doris聚合模型进行数据统计，实现强大的数据实时统计。\n3.列式扩展：使用Doris列式存储进行上报数据的存储，并支持配置化的列扩展，更符合业务特性与系统功能。\n4.任务调度：对底层库表的耗时查询操作支持分布式任务调度功能，支持任务排队，高优先级插队，缓解底层数据库的压力，提高服务可用性。\n5.复杂分析SQL生成：使用JsonSchema定义与校验SQL参数，使用JFinal模板框架组装可执行SQL，配合Doris窗口函数提供强大的复杂分析功能。",
+          "visible": true
+        },
+        {
+          "id": "p4",
+          "name": "IM消息中心",
+          "url": "",
+          "startDate": "2023.3",
+          "endDate": "2025.12",
+          "description": "所属公司：小花网络科技（深圳）有限公司\n项目简述：通过WebSocket技术向各端推送通知、消息的基础架构服务，提供各种业务类型的对接SDK包。\n使用技术：SpringBoot + Netty + Redis + Dubbo\n亮点功能：\n1.Netty应用：使用Netty技术，实现低延迟、高并发、高吞吐的消息推送服务。\n2.Dubbo高级应用：使用SPI机制重写Route机制，保证Netty长连接请求的触达，解决多Pod场景消息路由问题。\n3.设计模式应用：基于策略模式处理各种不同业务的对接，推送复杂场景下的消息，是一套完整且高扩展性的实现，是所有业务消息推送的基石。\n4.消息可靠性：依赖服务端自增SeqId + 客户端本地SeqId机制，通过校验SeqId与重拉机制共同保证消息不丢失、不重复、有序性。\n5.心跳保活：依托于Netty IdleStateHandler实现心跳保活机制，减少用户感知中断。",
+          "visible": true
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "type": "summary",
+      "name": "个人优势",
+      "visible": true,
+      "order": 4,
+      "items": [],
+      "content": "1.具备金融科技领域后端开发经验，熟悉证券 SaaS、金融借贷、风控、清算等复杂业务场景。\n2.具备高并发、高可用系统建设经验，熟悉 Redis、MQ、分布式组件在实际业务中的应用。\n3.具备较强的问题分析和系统优化能力，能够独立完成需求分析、开发实现、线上排障及性能优化。\n4.注重工程效率提升，熟练使用 Claude、Codex、DeepSeek 等 AI 辅助开发工具，提高研发效率。"
+    }
+  ],
+  "metadata": {
+    "templateId": "technical",
+    "templateVars": {
+      "fontFamily": "Songti SC, SimSun",
+      "headingFontFamily": "PingFang SC, Microsoft YaHei",
+      "fontSize": 12,
+      "lineHeight": 1.5,
+      "primaryColor": "#111111",
+      "textColor": "#111111"
+    },
+    "theme": {
+      "primaryColor": "#111111",
+      "textColor": "#111111",
+      "backgroundColor": "#ffffff",
+      "fontFamily": "Songti SC, SimSun",
+      "fontSize": 12,
+      "spacing": 1.5
+    },
+    "page": {
+      "format": "a4",
+      "margin": 18
+    }
+  }
+}

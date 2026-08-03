@@ -99,6 +99,19 @@ export function createDefaultMeta(overrides: Partial<ITemplateMeta> = {}): ITemp
  * 所有模板默认暴露的基础变量。
  * 内置模板会在此基础上追加自己的变量。
  */
+export const TEMPLATE_FONT_OPTIONS = [
+  { label: 'Inter', value: 'Inter' },
+  { label: 'Helvetica', value: 'Helvetica' },
+  { label: 'Georgia', value: 'Georgia' },
+  { label: '苹方 / 雅黑', value: 'PingFang SC, Microsoft YaHei' },
+  { label: 'PingFang SC', value: 'PingFang SC' },
+  { label: '微软雅黑', value: 'Microsoft YaHei' },
+  { label: '宋体', value: 'Songti SC, SimSun' },
+  { label: 'Source Han Sans SC', value: 'Source Han Sans SC' },
+] as const;
+
+export const DEFAULT_HEADING_FONT_FAMILY = 'PingFang SC, Microsoft YaHei';
+
 export function createBaseVariables(theme: {
   primaryColor: string;
   fontFamily: string;
@@ -129,16 +142,18 @@ export function createBaseVariables(theme: {
     },
     {
       key: 'fontFamily',
-      label: '字体',
+      label: '正文字体',
       type: 'select',
       default: theme.fontFamily,
-      options: [
-        { label: 'Inter', value: 'Inter' },
-        { label: 'Helvetica', value: 'Helvetica' },
-        { label: 'Georgia', value: 'Georgia' },
-        { label: 'PingFang SC', value: 'PingFang SC' },
-        { label: 'Source Han Sans SC', value: 'Source Han Sans SC' },
-      ],
+      options: [...TEMPLATE_FONT_OPTIONS],
+      group: '排版',
+    },
+    {
+      key: 'headingFontFamily',
+      label: '标题字体',
+      type: 'select',
+      default: DEFAULT_HEADING_FONT_FAMILY,
+      options: [...TEMPLATE_FONT_OPTIONS],
       group: '排版',
     },
     {
@@ -385,9 +400,23 @@ function normalizeSource(raw: unknown): ITemplateSource {
 }
 
 function normalizeVariables(raw: unknown, seed: INormalizeSeed): ITemplateVariable[] {
-  if (!Array.isArray(raw)) return createBaseVariables(seed);
+  const base = createBaseVariables(seed);
+  if (!Array.isArray(raw)) return base;
   const cleaned = raw.filter(isPlainObject) as unknown as ITemplateVariable[];
-  return cleaned.length ? cleaned : createBaseVariables(seed);
+  if (!cleaned.length) return base;
+
+  // 旧模板补齐新增的基础变量（如 headingFontFamily），不覆盖模板已声明的同名项
+  const existingKeys = new Set(cleaned.map((v) => v.key));
+  const missing = base.filter((v) => !existingKeys.has(v.key));
+  if (!missing.length) return cleaned;
+
+  const fontIndex = cleaned.findIndex((v) => v.key === 'fontFamily');
+  if (fontIndex >= 0) {
+    const next = cleaned.slice();
+    next.splice(fontIndex + 1, 0, ...missing);
+    return next;
+  }
+  return [...cleaned, ...missing];
 }
 
 /**
