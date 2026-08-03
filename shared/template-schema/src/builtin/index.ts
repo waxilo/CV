@@ -235,7 +235,12 @@ const MODERN_CSS = `
 .item-head strong { font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif; }
 .date { flex-shrink: 0; font-size: 0.85em; color: var(--tpl-muted-color); white-space: nowrap; }
 .sub { margin-top: 2px; font-size: 0.92em; color: var(--tpl-muted-color); }
-.rich { margin-top: 5px; white-space: pre-wrap; }
+.rich { margin-top: 5px; }
+.rich p { margin: 0 0 0.4em; }
+.rich p:last-child { margin-bottom: 0; }
+.rich ul, .rich ol { margin: 0.3em 0; padding-left: 1.35em; }
+.rich li { margin: 0.12em 0; }
+.rich a { color: inherit; text-decoration: underline; }
 
 .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
 .main .tags span { background: #f1f5f9; color: #334155; padding: 2px 7px; border-radius: 4px; font-size: 0.82em; }
@@ -337,7 +342,12 @@ const CLASSIC_CSS = `
 .date { flex-shrink: 0; font-size: 0.85em; color: var(--tpl-muted-color); white-space: nowrap; }
 .sub { margin-top: 2px; font-size: 0.92em; color: var(--tpl-muted-color); }
 .sub em { font-style: italic; }
-.rich { margin-top: 4px; white-space: pre-wrap; text-align: justify; }
+.rich { margin-top: 4px; text-align: justify; }
+.rich p { margin: 0 0 0.4em; text-align: justify; }
+.rich p:last-child { margin-bottom: 0; }
+.rich ul, .rich ol { margin: 0.3em 0; padding-left: 1.35em; }
+.rich li { margin: 0.12em 0; }
+.rich a { color: inherit; text-decoration: underline; }
 .skill-line { margin: 0; }
 
 .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
@@ -426,7 +436,12 @@ const MINIMAL_CSS = `
 }
 .sub { display: block; margin-top: 1px; font-size: 0.9em; color: var(--tpl-muted-color); }
 .date { flex-shrink: 0; font-size: 0.8em; color: var(--tpl-muted-color); white-space: nowrap; padding-top: 2px; }
-.rich { margin-top: 5px; white-space: pre-wrap; font-size: 0.95em; }
+.rich { margin-top: 5px; font-size: 0.95em; }
+.rich p { margin: 0 0 0.4em; }
+.rich p:last-child { margin-bottom: 0; }
+.rich ul, .rich ol { margin: 0.3em 0; padding-left: 1.35em; }
+.rich li { margin: 0.12em 0; }
+.rich a { color: inherit; text-decoration: underline; }
 
 .tags { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; font-size: 0.85em; color: var(--tpl-muted-color); }
 `;
@@ -590,9 +605,13 @@ const TECHNICAL_CSS = `
 }
 .rich {
   margin-top: 4px;
-  white-space: pre-wrap;
   text-align: justify;
 }
+.rich p { margin: 0 0 0.4em; text-align: justify; }
+.rich p:last-child { margin-bottom: 0; }
+.rich ul, .rich ol { margin: 0.3em 0; padding-left: 1.35em; }
+.rich li { margin: 0.12em 0; }
+.rich a { color: inherit; text-decoration: underline; }
 .summary {
   margin-top: 0;
 }

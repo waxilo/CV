@@ -82,7 +82,7 @@ function renderSectionBody(section: IResumeSection): string {
   const items = visibleItems(section);
 
   if (section.type === 'summary') {
-    return `<p class="cv-summary">${richDesc(section.content || '')}</p>`;
+    return `<div class="cv-summary">${richDesc(section.content || '')}</div>`;
   }
 
   if (section.type === 'experience') {
@@ -95,7 +95,7 @@ function renderSectionBody(section: IResumeSection): string {
         <span>${escapeHtml(f(item, 'startDate'))} – ${escapeHtml(
           f(item, 'endDate') || '至今'
         )}</span></div>
-        <p class="cv-desc">${richDesc(f(item, 'description'))}</p></div>`
+        <div class="cv-desc">${richDesc(f(item, 'description'))}</div></div>`
       )
       .join('')}</div>`;
   }
@@ -108,7 +108,7 @@ function renderSectionBody(section: IResumeSection): string {
           f(item, 'degree')
         )} ${escapeHtml(f(item, 'major'))}</strong>
         <span>${escapeHtml(f(item, 'startDate'))} – ${escapeHtml(f(item, 'endDate'))}</span></div>
-        <p class="cv-desc">${richDesc(f(item, 'description'))}</p></div>`
+        <div class="cv-desc">${richDesc(f(item, 'description'))}</div></div>`
       )
       .join('')}</div>`;
   }
@@ -118,7 +118,7 @@ function renderSectionBody(section: IResumeSection): string {
       .map(
         (item) => `<div class="cv-skill"><span>${escapeHtml(f(item, 'name'))}</span>
         <div class="cv-bar"><i style="width:${(n(item, 'level') / 5) * 100}%"></i></div>
-        ${f(item, 'description') ? `<p class="cv-desc">${richDesc(f(item, 'description'))}</p>` : ''}</div>`
+        ${f(item, 'description') ? `<div class="cv-desc">${richDesc(f(item, 'description'))}</div>` : ''}</div>`
       )
       .join('')}</div>`;
   }
@@ -129,7 +129,7 @@ function renderSectionBody(section: IResumeSection): string {
         (item) => `<div class="cv-entry">
         <div class="cv-entry-head"><strong>${escapeHtml(f(item, 'name'))}</strong>
         <span>${escapeHtml(f(item, 'startDate'))} – ${escapeHtml(f(item, 'endDate'))}</span></div>
-        <p class="cv-desc">${richDesc(f(item, 'description'))}</p></div>`
+        <div class="cv-desc">${richDesc(f(item, 'description'))}</div></div>`
       )
       .join('')}</div>`;
   }
@@ -148,7 +148,7 @@ function renderSectionBody(section: IResumeSection): string {
       (item) => `<div class="cv-entry"><strong>${escapeHtml(
         f(item, 'title') || f(item, 'name')
       )}</strong>
-      <p class="cv-desc">${richDesc(f(item, 'description'))}</p></div>`
+      <div class="cv-desc">${richDesc(f(item, 'description'))}</div></div>`
     )
     .join('')}</div>`;
 }
@@ -277,7 +277,12 @@ ${Array.from({ length: 12 }, (_, i) => `.cv-col-${i + 1}{ width:${((i + 1) / 12)
 .cv-entry-head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
 .cv-entry-head strong { font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif; }
 .cv-entry-head span { color: var(--tpl-muted-color); white-space: nowrap; font-size: 0.9em; }
-.cv-desc, .cv-summary { white-space: pre-wrap; color: #334155; margin: 0; }
+.cv-desc, .cv-summary { color: #334155; margin: 0; }
+.cv-desc p, .cv-summary p { margin: 0 0 0.4em; }
+.cv-desc p:last-child, .cv-summary p:last-child { margin-bottom: 0; }
+.cv-desc ul, .cv-desc ol, .cv-summary ul, .cv-summary ol { margin: 0.3em 0; padding-left: 1.35em; }
+.cv-desc li, .cv-summary li { margin: 0.12em 0; }
+.cv-desc a, .cv-summary a { color: inherit; text-decoration: underline; }
 .cv-skills { display: flex; flex-direction: column; gap: 8px; }
 .cv-skill { display: grid; grid-template-columns: 90px 1fr; gap: 10px; align-items: center; }
 .cv-bar { height: 6px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }

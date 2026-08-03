@@ -36,9 +36,23 @@ const activePaneTitle = computed(() => {
 
 let autoSaveTimer: ReturnType<typeof setInterval> | null = null;
 
+async function handleSave() {
+  if (resumeStore.isSaving || resumeStore.isLoading) return;
+  await resumeStore.saveResume();
+  ElMessage.success('已保存');
+}
+
+function onKeydown(event: KeyboardEvent) {
+  if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return;
+  event.preventDefault();
+  void handleSave();
+}
+
 onMounted(async () => {
   const id = route.params.id as string;
   await resumeStore.loadResume(id);
+
+  window.addEventListener('keydown', onKeydown);
 
   autoSaveTimer = setInterval(async () => {
     if (resumeStore.isDirty && !resumeStore.isSaving) {
@@ -48,6 +62,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown);
   if (autoSaveTimer) clearInterval(autoSaveTimer);
 });
 
@@ -60,11 +75,6 @@ watch(
     if (!stillExists) activeKey.value = 'basics';
   }
 );
-
-async function handleSave() {
-  await resumeStore.saveResume();
-  ElMessage.success('已保存');
-}
 
 function handlePrint() {
   if (!resumeStore.currentId) return;
@@ -98,7 +108,9 @@ function onSelect(key: string) {
         <el-tag v-else type="success" size="small" effect="plain">已同步</el-tag>
       </div>
       <div class="right">
-        <el-button :loading="resumeStore.isSaving" type="primary" @click="handleSave">保存</el-button>
+        <el-button :loading="resumeStore.isSaving" type="primary" title="Ctrl/⌘ + S" @click="handleSave">
+          保存
+        </el-button>
         <el-button @click="handlePrint">导出 PDF</el-button>
       </div>
     </header>

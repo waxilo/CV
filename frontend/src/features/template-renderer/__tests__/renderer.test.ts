@@ -228,10 +228,14 @@ describe('sanitize', () => {
   });
 });
 
-describe('richTextToHtml / toggleBoldMarkers', () => {
-  it('把 **加粗** 转为 strong，并转义 HTML', () => {
+describe('richTextToHtml / markdown markers', () => {
+  it('把常用 Markdown 转为 HTML，并转义危险标签', () => {
     expect(richTextToHtml('负责 **订单** 中心\n优化')).toBe(
-      '负责 <strong>订单</strong> 中心<br />优化'
+      '<p>负责 <strong>订单</strong> 中心<br />优化</p>'
+    );
+    expect(richTextToHtml('- 项一\n- 项二')).toBe('<ul><li>项一</li><li>项二</li></ul>');
+    expect(richTextToHtml('见 [文档](https://example.com)')).toContain(
+      '<a href="https://example.com"'
     );
     expect(richTextToHtml('<script>x</script> **ok**')).toContain('&lt;script&gt;');
     expect(richTextToHtml('<script>x</script> **ok**')).toContain('<strong>ok</strong>');

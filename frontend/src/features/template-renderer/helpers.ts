@@ -159,55 +159,171 @@ export function nl2br(value: unknown): SafeHtml {
 }
 
 /**
- * 简历描述类纯文本 → 最小 HTML。
- * 先转义，再把 **加粗** 转成 &lt;strong&gt;，换行转 &lt;br /&gt;。
+ * 简历描述 Markdown → HTML（先转义再解析，输出仍需走 sanitizeHtml）。
+ * 支持：段落/换行、**加粗**、*斜体*、~~删除线~~、`代码`、[链接](https://…)、- / 1. 列表。
  */
 export function richTextToHtml(text: string): string {
   if (!text) return '';
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-  const withBold = escaped.replace(/\*\*((?:[^*]|\*(?!\*))+)\*\*/g, '<strong>$1</strong>');
-  return withBold.replace(/\r?\n/g, '<br />');
+  const lines = String(text).replace(/\r\n/g, '\n').split('\n');
+  const blocks: string[] = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+
+    if (!line.trim()) {
+      index += 1;
+      continue;
+    }
+
+    if (/^\s*[-*+]\s+/.test(line)) {
+      const items: string[] = [];
+      while (index < lines.length && /^\s*[-*+]\s+/.test(lines[index])) {
+        const raw = lines[index].replace(/^\s*[-*+]\s+/, '');
+        items.push(`<li>${inlineMarkdown(escapeHtml(raw))}</li>`);
+        index += 1;
+      }
+      blocks.push(`<ul>${items.join('')}</ul>`);
+      continue;
+    }
+
+    if (/^\s*\d+\.\s+/.test(line)) {
+      const items: string[] = [];
+      while (index < lines.length && /^\s*\d+\.\s+/.test(lines[index])) {
+        const raw = lines[index].replace(/^\s*\d+\.\s+/, '');
+        items.push(`<li>${inlineMarkdown(escapeHtml(raw))}</li>`);
+        index += 1;
+      }
+      blocks.push(`<ol>${items.join('')}</ol>`);
+      continue;
+    }
+
+    const paragraph: string[] = [];
+    while (
+      index < lines.length &&
+      lines[index].trim() &&
+      !/^\s*[-*+]\s+/.test(lines[index]) &&
+      !/^\s*\d+\.\s+/.test(lines[index])
+    ) {
+      paragraph.push(inlineMarkdown(escapeHtml(lines[index])));
+      index += 1;
+    }
+    blocks.push(`<p>${paragraph.join('<br />')}</p>`);
+  }
+
+  return blocks.join('');
 }
 
+/** 已转义文本上的行内 Markdown */
+function inlineMarkdown(escaped: string): string {
+  let html = escaped;
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
+    '<a href="$2" rel="noopener noreferrer" target="_blank">$1</a>'
+  );
+  html = html.replace(/\*\*((?:[^*]|\*(?!\*))+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/__((?:[^_]|_(?!_))+?)__/g, '<strong>$1</strong>');
+  html = html.replace(/~~([^~]+)~~/g, '<s>$1</s>');
+  // 单星斜体，避开已处理的 **
+  html = html.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+  html = html.replace(/(^|[^_])_([^_\n]+)_(?!_)/g, '$1<em>$2</em>');
+  return html;
+}
+
+export type TMarkdownMarker = '**' | '*' | '~~' | '`';
+
 /**
- * 对选区切换 **加粗** 包裹。无选区时插入一对 `**` 并把光标放中间。
+ * 对选区切换 Markdown 标记包裹。无选区时插入一对标记并把光标放中间。
  */
+export function toggleMarkdownMarkers(
+  value: string,
+  start: number,
+  end: number,
+  marker: TMarkdownMarker
+): { value: string; start: number; end: number } {
+  const safeStart = Math.max(0, Math.min(start, value.length));
+  const safeEnd = Math.max(safeStart, Math.min(end, value.length));
+  const open = marker;
+  const close = marker;
+  const wrapLen = open.length;
+
+  if (safeStart === safeEnd) {
+    const insert = `${open}${close}`;
+    const next = `${value.slice(0, safeStart)}${insert}${value.slice(safeEnd)}`;
+    return { value: next, start: safeStart + wrapLen, end: safeStart + wrapLen };
+  }
+
+  const selected = value.slice(safeStart, safeEnd);
+  if (selected.startsWith(open) && selected.endsWith(close) && selected.length >= wrapLen * 2) {
+    const inner = selected.slice(wrapLen, selected.length - wrapLen);
+    const next = `${value.slice(0, safeStart)}${inner}${value.slice(safeEnd)}`;
+    return { value: next, start: safeStart, end: safeStart + inner.length };
+  }
+
+  if (
+    safeStart >= wrapLen &&
+    safeEnd + wrapLen <= value.length &&
+    value.slice(safeStart - wrapLen, safeStart) === open &&
+    value.slice(safeEnd, safeEnd + wrapLen) === close
+  ) {
+    const next = `${value.slice(0, safeStart - wrapLen)}${selected}${value.slice(safeEnd + wrapLen)}`;
+    return { value: next, start: safeStart - wrapLen, end: safeEnd - wrapLen };
+  }
+
+  const wrapped = `${open}${selected}${close}`;
+  const next = `${value.slice(0, safeStart)}${wrapped}${value.slice(safeEnd)}`;
+  return { value: next, start: safeStart, end: safeStart + wrapped.length };
+}
+
+/** @deprecated 使用 toggleMarkdownMarkers(value, start, end, '**') */
 export function toggleBoldMarkers(
+  value: string,
+  start: number,
+  end: number
+): { value: string; start: number; end: number } {
+  return toggleMarkdownMarkers(value, start, end, '**');
+}
+
+/** 给选中行（或当前行）加上无序列表前缀 */
+export function toggleListMarkers(
   value: string,
   start: number,
   end: number
 ): { value: string; start: number; end: number } {
   const safeStart = Math.max(0, Math.min(start, value.length));
   const safeEnd = Math.max(safeStart, Math.min(end, value.length));
+  const lineStart = value.lastIndexOf('\n', Math.max(0, safeStart - 1)) + 1;
+  const lineEndIdx = value.indexOf('\n', safeEnd);
+  const lineEnd = lineEndIdx === -1 ? value.length : lineEndIdx;
+  const block = value.slice(lineStart, lineEnd);
+  const lines = block.split('\n');
+  const allListed = lines.every((line) => /^\s*[-*+]\s+/.test(line) || !line.trim());
+  const nextLines = lines.map((line) => {
+    if (!line.trim()) return line;
+    if (allListed) return line.replace(/^\s*[-*+]\s+/, '');
+    if (/^\s*[-*+]\s+/.test(line)) return line;
+    return `- ${line}`;
+  });
+  const nextBlock = nextLines.join('\n');
+  const next = `${value.slice(0, lineStart)}${nextBlock}${value.slice(lineEnd)}`;
+  return { value: next, start: lineStart, end: lineStart + nextBlock.length };
+}
 
-  if (safeStart === safeEnd) {
-    const next = `${value.slice(0, safeStart)}****${value.slice(safeEnd)}`;
-    return { value: next, start: safeStart + 2, end: safeStart + 2 };
-  }
-
-  const selected = value.slice(safeStart, safeEnd);
-  if (selected.startsWith('**') && selected.endsWith('**') && selected.length >= 4) {
-    const inner = selected.slice(2, -2);
-    const next = `${value.slice(0, safeStart)}${inner}${value.slice(safeEnd)}`;
-    return { value: next, start: safeStart, end: safeStart + inner.length };
-  }
-
-  if (
-    safeStart >= 2 &&
-    safeEnd + 2 <= value.length &&
-    value.slice(safeStart - 2, safeStart) === '**' &&
-    value.slice(safeEnd, safeEnd + 2) === '**'
-  ) {
-    const next = `${value.slice(0, safeStart - 2)}${selected}${value.slice(safeEnd + 2)}`;
-    return { value: next, start: safeStart - 2, end: safeEnd - 2 };
-  }
-
-  const wrapped = `**${selected}**`;
+/** 把选区包成 Markdown 链接；无选区时插入占位 */
+export function wrapLinkMarkers(
+  value: string,
+  start: number,
+  end: number,
+  url = 'https://'
+): { value: string; start: number; end: number } {
+  const safeStart = Math.max(0, Math.min(start, value.length));
+  const safeEnd = Math.max(safeStart, Math.min(end, value.length));
+  const selected = value.slice(safeStart, safeEnd) || '链接文字';
+  const wrapped = `[${selected}](${url})`;
   const next = `${value.slice(0, safeStart)}${wrapped}${value.slice(safeEnd)}`;
-  return { value: next, start: safeStart, end: safeStart + wrapped.length };
+  const urlStart = safeStart + selected.length + 3;
+  return { value: next, start: urlStart, end: urlStart + url.length };
 }
 
 /** 空值兜底。空字符串、null、undefined、空数组都算空 */

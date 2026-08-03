@@ -46,8 +46,15 @@ function text(item: TSectionItem, key: string): string {
   return value === undefined || value === null ? '' : String(value).trim();
 }
 
+/** 拖完松手时会触发 pointerup/click，用短抑制窗口区分「拖排序」和「点开编辑」 */
+const suppressOpen = ref(false);
+/** 按下时的坐标，用于判断是单击还是拖动意图 */
+const pressPoint = ref<{ id: string; x: number; y: number } | null>(null);
+
+/** 超过该像素位移才视为拖拽；单击时的手抖不会开拖、也不会被吞掉 */
+const DRAG_DISTANCE_PX = 10;
+
 function openItem(item: TSectionItem) {
-  // 拖拽结束后浏览器还会补一次 click，这里吞掉，避免误开编辑页
   if (suppressOpen.value) return;
   editingItemId.value = itemId(item);
   nextTick(() => {
@@ -55,17 +62,34 @@ function openItem(item: TSectionItem) {
   });
 }
 
-/** 拖完松手时会触发 click，用短抑制窗口区分「拖排序」和「点开编辑」 */
-const suppressOpen = ref(false);
-
 function onDragStart() {
   suppressOpen.value = true;
+  pressPoint.value = null;
 }
 
 function onDragEnd() {
   window.setTimeout(() => {
     suppressOpen.value = false;
-  }, 80);
+  }, 120);
+}
+
+function onCardPointerDown(event: PointerEvent, item: TSectionItem) {
+  if (event.button !== 0) return;
+  pressPoint.value = { id: itemId(item), x: event.clientX, y: event.clientY };
+}
+
+function onCardPointerUp(event: PointerEvent, item: TSectionItem) {
+  const start = pressPoint.value;
+  pressPoint.value = null;
+  if (!start || start.id !== itemId(item)) return;
+  if (suppressOpen.value) return;
+  const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+  if (moved > DRAG_DISTANCE_PX) return;
+  openItem(item);
+}
+
+function onCardPointerCancel() {
+  pressPoint.value = null;
 }
 
 function closeSheet() {
@@ -130,6 +154,15 @@ function patch(item: TSectionItem, data: Record<string, unknown>) {
 
 async function remove(item: TSectionItem) {
   if (!section.value) return;
+  try {
+    await ElMessageBox.confirm(`删除条目「${itemTitle(item)}」？删除后不可恢复。`, '确认删除', {
+      type: 'warning',
+      confirmButtonText: '确认删除',
+      cancelButtonText: '取消',
+    });
+  } catch {
+    return;
+  }
   const id = itemId(item);
   if (editingItemId.value === id) closeSheet();
   resumeStore.removeItem(section.value.id, id);
@@ -137,13 +170,6 @@ async function remove(item: TSectionItem) {
 
 async function removeEditingItem() {
   if (!editingItem.value) return;
-  try {
-    await ElMessageBox.confirm(`删除条目「${itemTitle(editingItem.value)}」？`, '确认', {
-      type: 'warning',
-    });
-  } catch {
-    return;
-  }
   await remove(editingItem.value);
 }
 
@@ -224,7 +250,8 @@ watch(
         force-fallback：不用 HTML5 原生拖放。Windows 的 WebView2 没实现原生 DnD，
         Tauri 窗口里 dragstart 根本不触发，只有 sortablejs 的鼠标事件模拟能用。
         fallback-on-body：跟随鼠标的克隆挂到 body，否则会被中间栏的 overflow 裁掉。
-        整卡可拖；filter 排除删除按钮，避免按删除时误触发拖拽。
+        distance：移动超过阈值才开拖，避免单击被当成拖拽、点不开条目。
+        filter：排除删除按钮，避免按删除时误触发拖拽。
       -->
       <draggable
         v-model="items"
@@ -235,6 +262,8 @@ watch(
         :prevent-on-filter="true"
         :force-fallback="true"
         :fallback-on-body="true"
+        :distance="DRAG_DISTANCE_PX"
+        :fallback-tolerance="DRAG_DISTANCE_PX"
         :animation="200"
         @start="onDragStart"
         @end="onDragEnd"
@@ -245,8 +274,10 @@ watch(
             :class="{ active: editingItemId === itemId(raw) }"
             role="button"
             tabindex="0"
-            title="拖拽排序，点击编辑"
-            @click="openItem(raw)"
+            title="单击编辑，按住拖动可排序"
+            @pointerdown="onCardPointerDown($event, raw)"
+            @pointerup="onCardPointerUp($event, raw)"
+            @pointercancel="onCardPointerCancel"
             @keydown.enter.prevent="openItem(raw)"
             @keydown.space.prevent="openItem(raw)"
           >
@@ -260,6 +291,7 @@ watch(
               type="danger"
               size="small"
               title="删除条目"
+              @pointerdown.stop
               @click.stop="remove(raw)"
             >
               <el-icon><Delete /></el-icon>
