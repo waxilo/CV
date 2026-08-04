@@ -63,7 +63,8 @@ export interface IEducationItem {
 export interface ISkillItem {
   id: string;
   name: string;
-  level: number;
+  /** 兼容旧数据；编辑器已不再录入 */
+  level?: number;
   keywords: string[];
   /** 技能描述，用于展开说明掌握范围与实践经验 */
   description: string;
@@ -73,7 +74,8 @@ export interface ISkillItem {
 export interface IProjectItem {
   id: string;
   name: string;
-  url: string;
+  /** 兼容旧数据；编辑器已不再录入 */
+  url?: string;
   startDate: string;
   endDate: string;
   description: string;

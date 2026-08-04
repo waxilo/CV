@@ -18,6 +18,8 @@ const resumeStore = useResumeStore();
 const isExportingPdf = ref(false);
 const shareVisible = ref(false);
 const isTogglingShare = ref(false);
+/** 收起左侧导航+表单，只留简历预览 */
+const isPreviewImmersive = ref(false);
 
 const SECTION_PREFIX = 'section:';
 
@@ -53,6 +55,11 @@ async function handleSave() {
 }
 
 function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && isPreviewImmersive.value) {
+    event.preventDefault();
+    isPreviewImmersive.value = false;
+    return;
+  }
   if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return;
   event.preventDefault();
   void handleSave();
@@ -136,11 +143,21 @@ function goBack() {
 
 function onSelect(key: string) {
   activeKey.value = key;
+  // 从沉浸预览点选模块时自动展开编辑区
+  if (isPreviewImmersive.value) isPreviewImmersive.value = false;
+}
+
+function togglePreviewImmersive() {
+  isPreviewImmersive.value = !isPreviewImmersive.value;
 }
 </script>
 
 <template>
-  <div v-loading="resumeStore.isLoading" class="editor">
+  <div
+    v-loading="resumeStore.isLoading"
+    class="editor"
+    :class="{ 'is-immersive': isPreviewImmersive }"
+  >
     <header class="toolbar no-print">
       <div class="left">
         <el-button text @click="goBack">
@@ -157,15 +174,28 @@ function onSelect(key: string) {
         <el-tag v-if="resumeStore.isPublic" type="info" size="small" effect="plain">已分享</el-tag>
       </div>
       <div class="right">
+        <el-button
+          :type="isPreviewImmersive ? 'primary' : 'default'"
+          :title="isPreviewImmersive ? '退出沉浸预览（Esc）' : '收起编辑区，沉浸预览'"
+          @click="togglePreviewImmersive"
+        >
+          <el-icon>
+            <FullScreen v-if="!isPreviewImmersive" />
+            <CloseBold v-else />
+          </el-icon>
+          {{ isPreviewImmersive ? '退出沉浸' : '沉浸预览' }}
+        </el-button>
         <el-button :loading="resumeStore.isSaving" type="primary" title="Ctrl/⌘ + S" @click="handleSave">
           保存
         </el-button>
-        <el-button @click="openShare">分享</el-button>
+        <el-button :type="resumeStore.isPublic ? 'success' : 'default'" @click="openShare">
+          分享
+        </el-button>
         <el-button :loading="isExportingPdf" @click="handleExportPdf">导出 PDF</el-button>
       </div>
     </header>
 
-    <div class="workspace">
+    <div class="workspace" :class="{ immersive: isPreviewImmersive }">
       <!--
         左两段（导航 + 表单）包成 composer：条目编辑页 Teleport 到这里，
         从底部升起时正好盖住这两栏，右侧预览保持可见。
@@ -260,21 +290,44 @@ function onSelect(key: string) {
   width: 220px;
 }
 
-/* 三段式：左两段合拢 + 预览 */
+/* 三段式：左两段合拢 + 预览（flex + max-width，比 grid 列宽过渡更顺） */
 .workspace {
+  --composer-width: 632px;
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(552px, 632px) 1fr;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
 }
 
 .composer {
   position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  width: var(--composer-width);
+  max-width: var(--composer-width);
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: 232px minmax(320px, 400px);
+  grid-template-columns: 232px minmax(0, 1fr);
   overflow: hidden;
+  opacity: 1;
+  transform: translateX(0);
+  will-change: max-width, opacity, transform;
+  transition:
+    max-width 480ms cubic-bezier(0.33, 1, 0.68, 1),
+    width 480ms cubic-bezier(0.33, 1, 0.68, 1),
+    opacity 360ms cubic-bezier(0.33, 1, 0.68, 1),
+    transform 480ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.workspace.immersive .composer {
+  width: 0;
+  max-width: 0;
+  opacity: 0;
+  transform: translateX(-18px);
+  pointer-events: none;
+  border: none;
 }
 
 .nav-col {
@@ -317,40 +370,77 @@ function onSelect(key: string) {
 
 .preview-col {
   position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
   overflow: auto;
   padding: 24px;
   background:
     linear-gradient(180deg, rgba(148, 163, 184, 0.12), transparent 120px),
     #e2e8f0;
+  transition: padding 480ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.workspace.immersive .preview-col {
+  padding: 28px 40px 48px;
 }
 
 .preview-stage {
   display: flex;
   justify-content: center;
+  transition: transform 480ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.workspace.immersive .preview-stage {
+  :deep(.resume-preview) {
+    width: min(100%, 860px);
+    transition: width 480ms cubic-bezier(0.33, 1, 0.68, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer,
+  .preview-col,
+  .preview-stage,
+  .workspace.immersive .preview-stage :deep(.resume-preview) {
+    transition: none !important;
+  }
 }
 
 @media (max-width: 1280px) {
   .workspace {
-    grid-template-columns: minmax(480px, 540px) 1fr;
+    --composer-width: 540px;
   }
 
   .composer {
-    grid-template-columns: 200px minmax(280px, 340px);
+    grid-template-columns: 200px minmax(0, 1fr);
   }
 }
 
 /* 窄屏放弃三列，改成纵向堆叠 */
 @media (max-width: 960px) {
   .workspace {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    --composer-width: 100%;
+    flex-direction: column;
   }
 
   .composer {
+    width: 100%;
+    max-width: 100%;
+    max-height: 75vh;
     grid-template-columns: 1fr;
     grid-template-rows: auto auto;
-    max-height: 75vh;
+    transition:
+      max-height 480ms cubic-bezier(0.33, 1, 0.68, 1),
+      opacity 360ms cubic-bezier(0.33, 1, 0.68, 1),
+      transform 480ms cubic-bezier(0.33, 1, 0.68, 1);
+  }
+
+  .workspace.immersive .composer {
+    width: 100%;
+    max-width: 100%;
+    max-height: 0;
+    transform: translateY(-12px);
   }
 
   .nav-col,

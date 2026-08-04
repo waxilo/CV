@@ -297,7 +297,7 @@ function normalizeItem(
     case 'projects':
       title = field(item, 'name');
       subtitle = field(item, 'role');
-      meta = field(item, 'url');
+      meta = '';
       range = fmtDateRange(item.startDate, item.endDate, item.isCurrent, fmt);
       description = field(item, 'description');
       break;

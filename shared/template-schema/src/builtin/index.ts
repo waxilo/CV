@@ -118,9 +118,6 @@ const MODERN_HTML = `
                 <span>{{this.title}}</span>
                 {{#if this.subtitle}}<em>{{this.subtitle}}</em>{{/if}}
               </div>
-              {{#if this.raw.level}}
-                <div class="bar"><i style="width:{{this.raw.level | percent(5)}}"></i></div>
-              {{/if}}
               {{#if this.descriptionSafe}}
                 <div class="side-desc">{{& this.descriptionSafe}}</div>
               {{/if}}

@@ -39,10 +39,6 @@ function f(item: TSectionItem, key: string): string {
   return val == null ? '' : String(val);
 }
 
-function n(item: TSectionItem, key: string): number {
-  return Number((item as Record<string, unknown>)[key] || 0);
-}
-
 function findSection(data: IResumeData, type: string): IResumeSection | undefined {
   return data.sections.find((s) => s.type === type && s.visible);
 }
@@ -117,7 +113,6 @@ function renderSectionBody(section: IResumeSection): string {
     return `<div class="cv-skills">${items
       .map(
         (item) => `<div class="cv-skill"><span>${escapeHtml(f(item, 'name'))}</span>
-        <div class="cv-bar"><i style="width:${(n(item, 'level') / 5) * 100}%"></i></div>
         ${f(item, 'description') ? `<div class="cv-desc">${richDesc(f(item, 'description'))}</div>` : ''}</div>`
       )
       .join('')}</div>`;

@@ -137,9 +137,9 @@ function itemMeta(item: TSectionItem): string {
     case 'education':
       return [text(item, 'degree'), text(item, 'major'), dateRange(item)].filter(Boolean).join(' · ');
     case 'skills':
-      return text(item, 'description') || `熟练度 ${Number(field(item, 'level') || 3)}/5`;
+      return text(item, 'description');
     case 'projects':
-      return text(item, 'url');
+      return dateRange(item);
     case 'languages':
       return text(item, 'level');
     default:
@@ -418,16 +418,6 @@ watch(
                     @update:model-value="(v: string) => patch(editingItem!, { name: v })"
                   />
                 </el-form-item>
-                <el-form-item label="熟练度">
-                  <el-slider
-                    :model-value="Number(field(editingItem, 'level') || 3)"
-                    :min="1"
-                    :max="5"
-                    :step="1"
-                    show-stops
-                    @update:model-value="(v: number | number[]) => patch(editingItem!, { level: Array.isArray(v) ? v[0] : v })"
-                  />
-                </el-form-item>
                 <el-form-item label="描述">
                   <RichTextArea
                     :model-value="text(editingItem, 'description')"
@@ -445,12 +435,22 @@ watch(
                     @update:model-value="(v: string) => patch(editingItem!, { name: v })"
                   />
                 </el-form-item>
-                <el-form-item label="链接">
-                  <el-input
-                    :model-value="text(editingItem, 'url')"
-                    @update:model-value="(v: string) => patch(editingItem!, { url: v })"
-                  />
-                </el-form-item>
+                <div class="row">
+                  <el-form-item label="开始">
+                    <el-input
+                      :model-value="text(editingItem, 'startDate')"
+                      placeholder="2022-01"
+                      @update:model-value="(v: string) => patch(editingItem!, { startDate: v })"
+                    />
+                  </el-form-item>
+                  <el-form-item label="结束">
+                    <el-input
+                      :model-value="text(editingItem, 'endDate')"
+                      placeholder="至今"
+                      @update:model-value="(v: string) => patch(editingItem!, { endDate: v })"
+                    />
+                  </el-form-item>
+                </div>
                 <el-form-item label="描述">
                   <RichTextArea
                     :model-value="text(editingItem, 'description')"

@@ -44,12 +44,11 @@ function createEmptyItem(type: TSectionType): Record<string, unknown> {
         visible: true,
       };
     case 'skills':
-      return { id, name: '', level: 3, keywords: [], description: '', visible: true };
+      return { id, name: '', keywords: [], description: '', visible: true };
     case 'projects':
       return {
         id,
         name: '',
-        url: '',
         startDate: '',
         endDate: '',
         description: '',
