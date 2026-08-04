@@ -171,7 +171,7 @@ const MODERN_CSS = `
   align-items: stretch;
   min-height: 297mm;
   height: auto;
-  font-family: var(--tpl-font-family), 'PingFang SC', sans-serif;
+  font-family: var(--tpl-font-family), 'Microsoft YaHei', sans-serif;
   font-size: var(--tpl-font-size);
   line-height: var(--tpl-line-height);
   color: var(--tpl-text-color);
@@ -313,7 +313,7 @@ const CLASSIC_HTML = `
 const CLASSIC_CSS = `
 .cv {
   padding: var(--page-margin-top) var(--page-margin-right) var(--page-margin-bottom) var(--page-margin-left);
-  font-family: var(--tpl-font-family), 'Songti SC', serif;
+  font-family: var(--tpl-font-family), 'Songti SC', 'SimSun', serif;
   font-size: var(--tpl-font-size);
   line-height: var(--tpl-line-height);
   color: var(--tpl-text-color);
@@ -405,7 +405,7 @@ const MINIMAL_HTML = `
 const MINIMAL_CSS = `
 .cv {
   padding: var(--page-margin-top) var(--page-margin-right) var(--page-margin-bottom) var(--page-margin-left);
-  font-family: var(--tpl-font-family), 'PingFang SC', sans-serif;
+  font-family: var(--tpl-font-family), 'Microsoft YaHei', sans-serif;
   font-size: var(--tpl-font-size);
   line-height: var(--tpl-line-height);
   color: var(--tpl-text-color);
@@ -548,7 +548,7 @@ const TECHNICAL_CSS = `
 }
 .name {
   margin: 0 0 10px;
-  font-family: var(--tpl-heading-font-family), 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: var(--tpl-heading-font-family), 'Microsoft YaHei', sans-serif;
   font-size: 1.42em;
   font-weight: 700;
   line-height: 1.2;
@@ -578,7 +578,7 @@ const TECHNICAL_CSS = `
 }
 .sec-title {
   margin: 0 0 10px;
-  font-family: var(--tpl-heading-font-family), 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: var(--tpl-heading-font-family), 'Microsoft YaHei', sans-serif;
   font-size: 1.16em;
   font-weight: 700;
   line-height: 1.25;
@@ -599,7 +599,7 @@ const TECHNICAL_CSS = `
   gap: 3px 7px;
 }
 .item-head strong {
-  font-family: var(--tpl-heading-font-family), 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: var(--tpl-heading-font-family), 'Microsoft YaHei', sans-serif;
   font-size: 1em;
   font-weight: 700;
 }
@@ -628,7 +628,7 @@ const TECHNICAL_CSS = `
 }
 .skill-item h3 {
   margin: 0 0 5px;
-  font-family: var(--tpl-heading-font-family), 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: var(--tpl-heading-font-family), 'Microsoft YaHei', sans-serif;
   font-size: 0.98em;
   font-weight: 700;
 }
@@ -764,7 +764,7 @@ const BUSINESS_HTML = `
 const BUSINESS_CSS = `
 .cv {
   padding: var(--page-margin-top) var(--page-margin-right) var(--page-margin-bottom) var(--page-margin-left);
-  font-family: var(--tpl-font-family), 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: var(--tpl-font-family), 'Microsoft YaHei', sans-serif;
   font-size: var(--tpl-font-size);
   line-height: var(--tpl-line-height);
   color: var(--tpl-text-color);
@@ -952,7 +952,7 @@ export const BUILTIN_TEMPLATES: IBuiltinTemplate[] = [
       title: '现代简约',
       layout: 'sidebar-left',
       primaryColor: '#2563eb',
-      fontFamily: 'Inter',
+      fontFamily: 'Microsoft YaHei',
       fontSize: 14,
       spacing: 1.15,
       html: MODERN_HTML,
@@ -969,7 +969,7 @@ export const BUILTIN_TEMPLATES: IBuiltinTemplate[] = [
       title: '经典正式',
       layout: 'single-column',
       primaryColor: '#1e293b',
-      fontFamily: 'Georgia',
+      fontFamily: 'Songti SC, SimSun',
       fontSize: 14,
       spacing: 1.2,
       html: CLASSIC_HTML,
@@ -986,7 +986,7 @@ export const BUILTIN_TEMPLATES: IBuiltinTemplate[] = [
       title: '极简白',
       layout: 'single-column',
       primaryColor: '#0f172a',
-      fontFamily: 'Helvetica',
+      fontFamily: 'Microsoft YaHei',
       fontSize: 13,
       spacing: 1.3,
       html: MINIMAL_HTML,
@@ -1015,7 +1015,7 @@ export const BUILTIN_TEMPLATES: IBuiltinTemplate[] = [
         mutedColor: '#555555',
         backgroundColor: '#ffffff',
         showAvatar: false,
-        headingFontFamily: 'PingFang SC, Microsoft YaHei',
+        headingFontFamily: 'Microsoft YaHei',
       },
     }),
   },
@@ -1027,7 +1027,7 @@ export const BUILTIN_TEMPLATES: IBuiltinTemplate[] = [
       title: '酒红商务',
       layout: 'single-column',
       primaryColor: '#A83C4E',
-      fontFamily: 'PingFang SC, Microsoft YaHei',
+      fontFamily: 'Microsoft YaHei',
       fontSize: 13,
       spacing: 1.45,
       html: BUSINESS_HTML,
@@ -1039,7 +1039,7 @@ export const BUILTIN_TEMPLATES: IBuiltinTemplate[] = [
         mutedColor: '#6b6b6b',
         showAvatar: false,
         dateFormat: 'YYYY年MM月',
-        headingFontFamily: 'PingFang SC, Microsoft YaHei',
+        headingFontFamily: 'Microsoft YaHei',
       },
     }),
   },

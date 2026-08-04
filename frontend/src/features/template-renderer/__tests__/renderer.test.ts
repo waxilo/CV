@@ -37,7 +37,7 @@ describe('normalizeTemplateConfig', () => {
     const cfg = normalizeTemplateConfig({
       layout: 'sidebar-left',
       primaryColor: '#111111',
-      fontFamily: 'Inter',
+      fontFamily: 'Microsoft YaHei',
       fontSize: 14,
       spacing: 1.2,
     });

@@ -24,7 +24,7 @@ export function runTemplateSchemaSelfCheck(): string[] {
   const legacy = normalizeIncomingConfig({
     layout: 'sidebar-left',
     primaryColor: '#2563eb',
-    fontFamily: 'Inter',
+    fontFamily: 'Microsoft YaHei',
     fontSize: 14,
     spacing: 1.15,
   });

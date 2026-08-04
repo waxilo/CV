@@ -100,17 +100,11 @@ export function createDefaultMeta(overrides: Partial<ITemplateMeta> = {}): ITemp
  * 内置模板会在此基础上追加自己的变量。
  */
 export const TEMPLATE_FONT_OPTIONS = [
-  { label: 'Inter', value: 'Inter' },
-  { label: 'Helvetica', value: 'Helvetica' },
-  { label: 'Georgia', value: 'Georgia' },
-  { label: '苹方 / 雅黑', value: 'PingFang SC, Microsoft YaHei' },
-  { label: 'PingFang SC', value: 'PingFang SC' },
   { label: '微软雅黑', value: 'Microsoft YaHei' },
   { label: '宋体', value: 'Songti SC, SimSun' },
-  { label: 'Source Han Sans SC', value: 'Source Han Sans SC' },
 ] as const;
 
-export const DEFAULT_HEADING_FONT_FAMILY = 'PingFang SC, Microsoft YaHei';
+export const DEFAULT_HEADING_FONT_FAMILY = 'Microsoft YaHei';
 
 export function createBaseVariables(theme: {
   primaryColor: string;
@@ -384,7 +378,7 @@ function readSeed(cfg: Record<string, unknown>): INormalizeSeed {
     engine,
     layout: layoutOf(cfg.layout),
     primaryColor: str(cfg.primaryColor, '#2563eb'),
-    fontFamily: str(cfg.fontFamily, 'Inter'),
+    fontFamily: str(cfg.fontFamily, 'Microsoft YaHei'),
     fontSize: num(cfg.fontSize, 14, 10, 20),
     spacing: num(cfg.spacing, 1.15, 0.8, 2),
     customCss: str(cfg.customCss, ''),
@@ -531,7 +525,7 @@ export function createDefaultTemplateConfig(
     engine: 'blocks',
     layout,
     primaryColor: str(overrides.primaryColor, '#2563eb'),
-    fontFamily: str(overrides.fontFamily, 'Inter'),
+    fontFamily: str(overrides.fontFamily, 'Microsoft YaHei'),
     fontSize: num(overrides.fontSize, 14, 10, 20),
     spacing: num(overrides.spacing, 1.15, 0.8, 2),
     customCss: str(overrides.customCss, ''),

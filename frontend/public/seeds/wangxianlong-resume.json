@@ -189,7 +189,7 @@
     "templateId": "technical",
     "templateVars": {
       "fontFamily": "Songti SC, SimSun",
-      "headingFontFamily": "PingFang SC, Microsoft YaHei",
+      "headingFontFamily": "Microsoft YaHei",
       "fontSize": 12,
       "lineHeight": 1.5,
       "primaryColor": "#111111",

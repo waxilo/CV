@@ -233,7 +233,7 @@ export function createDefaultResumeData(): IResumeData {
         primaryColor: '#2563eb',
         textColor: '#0f172a',
         backgroundColor: '#ffffff',
-        fontFamily: 'Inter',
+        fontFamily: 'Microsoft YaHei',
         fontSize: 14,
         spacing: 1.15,
       },

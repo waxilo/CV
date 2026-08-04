@@ -47,7 +47,7 @@ ${cssVarsToDeclarations(cssVars)}
   margin: 0 auto;
   background: #fff;
   color: var(--tpl-text-color, #0f172a);
-  font-family: var(--tpl-font-family, Inter), 'PingFang SC', system-ui, sans-serif;
+  font-family: var(--tpl-font-family, 'Microsoft YaHei'), 'Microsoft YaHei', sans-serif;
   font-size: var(--tpl-font-size, 14px);
   line-height: var(--tpl-line-height, 1.15);
   overflow: visible;
