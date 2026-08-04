@@ -84,6 +84,8 @@ export const useResumeStore = defineStore('resume', () => {
   const currentId = ref<string>('');
   const title = ref('未命名简历');
   const data = ref<IResumeData | null>(null);
+  const isPublic = ref(false);
+  const shareToken = ref<string | null>(null);
   const isLoading = ref(false);
   const isSaving = ref(false);
   const isDirty = ref(false);
@@ -122,6 +124,8 @@ export const useResumeStore = defineStore('resume', () => {
         currentId.value = res.data.resume_id;
         title.value = res.data.title;
         data.value = res.data.data;
+        isPublic.value = Boolean(res.data.is_public);
+        shareToken.value = res.data.share_token || null;
         isDirty.value = false;
       }
     } finally {
@@ -143,6 +147,20 @@ export const useResumeStore = defineStore('resume', () => {
     } finally {
       isSaving.value = false;
     }
+  }
+
+  /**
+   * 开启/关闭在线分享。
+   * 每次开启都会生成新的 share_token，旧链接立即失效。
+   */
+  async function setPublicShare(enabled: boolean) {
+    if (!currentId.value) return;
+    const res = await updateResumeApi({
+      resume_id: currentId.value,
+      is_public: enabled,
+    });
+    isPublic.value = enabled;
+    shareToken.value = enabled ? res.data?.share_token || null : null;
   }
 
   async function removeResume(resumeId: string) {
@@ -354,6 +372,8 @@ export const useResumeStore = defineStore('resume', () => {
     currentId,
     title,
     data,
+    isPublic,
+    shareToken,
     isLoading,
     isSaving,
     isDirty,
@@ -363,6 +383,7 @@ export const useResumeStore = defineStore('resume', () => {
     createResume,
     loadResume,
     saveResume,
+    setPublicShare,
     removeResume,
     duplicateResume,
     updateBasics,

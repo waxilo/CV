@@ -9,6 +9,12 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true },
   },
   {
+    path: '/s/:id',
+    name: 'ShareResume',
+    component: () => import('/@/views/ShareResume.vue'),
+    meta: { public: true },
+  },
+  {
     path: '/',
     name: 'Dashboard',
     component: () => import('/@/views/Dashboard.vue'),
@@ -53,6 +59,10 @@ const router = createRouter({
 
 router.beforeEach((to, _from, next) => {
   const userStore = useUserStore();
+  if (to.meta.public) {
+    next();
+    return;
+  }
   if (to.meta.requiresAuth && !userStore.isLoggedIn) {
     next({ name: 'Login', query: { redirect: to.fullPath } });
   } else if (to.name === 'Login' && userStore.isLoggedIn) {

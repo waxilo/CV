@@ -212,6 +212,7 @@ resumeRoutes.post('/get-detail', async (c) => {
       slug: resume.slug,
       template_id: resume.templateId,
       is_public: resume.isPublic,
+      share_token: resume.shareToken ?? null,
       data: resume.data as IResumeData,
       updated_at: resume.updatedAt,
       created_at: resume.createdAt,
@@ -264,16 +265,31 @@ resumeRoutes.post('/update-resume', async (c) => {
     }
     patch.templateId = template_id;
   }
-  if (is_public !== undefined) patch.isPublic = is_public;
+  if (is_public !== undefined) {
+    patch.isPublic = is_public;
+    if (is_public) {
+      // 开启分享时轮换令牌，使旧链接立即失效
+      patch.shareToken = generateId();
+    } else {
+      patch.shareToken = null;
+    }
+  }
   if (slug !== undefined) patch.slug = slug;
 
   await db.update(resumes).set(patch).where(eq(resumes.id, resume_id));
+
+  const nextShareToken =
+    patch.shareToken !== undefined ? patch.shareToken : rows[0].shareToken;
 
   return c.json({
     success: true,
     code: '0',
     message: '更新成功',
-    data: { resume_id },
+    data: {
+      resume_id,
+      is_public: patch.isPublic !== undefined ? patch.isPublic : rows[0].isPublic,
+      share_token: nextShareToken ?? null,
+    },
   });
 });
 

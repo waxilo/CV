@@ -167,6 +167,7 @@ export interface IResumeSummary {
   slug: string;
   template_id: string;
   is_public: boolean;
+  share_token?: string | null;
   /** 列表接口也返回，用于卡片缩略图预览 */
   data: IResumeData;
   updated_at: string;

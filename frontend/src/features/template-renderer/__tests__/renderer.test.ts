@@ -95,7 +95,7 @@ describe('validateTemplateConfig', () => {
     expect(validateTemplateConfig(createDefaultTemplateConfig()).valid).toBe(true);
   });
 
-  it('三个内置 HTML 模板都通过校验', () => {
+  it('内置 HTML 模板都通过校验', () => {
     for (const builtin of BUILTIN_TEMPLATES) {
       const result = validateTemplateConfig(builtin.config);
       expect(result.valid, `${builtin.id}: ${result.errors[0] || ''}`).toBe(true);
@@ -577,7 +577,7 @@ describe('buildCssVars', () => {
 describe('renderTemplate', () => {
   const data = createSampleResumeData();
 
-  it('三个内置 HTML 模板都能渲染出简历内容', () => {
+  it('内置 HTML 模板都能渲染出简历内容', () => {
     for (const builtin of BUILTIN_TEMPLATES) {
       const result = renderTemplate(builtin.config, data);
       expect(result.engine, builtin.id).toBe('html');

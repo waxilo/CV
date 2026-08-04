@@ -1,8 +1,8 @@
 /**
  * 内置 v2 HTML 模板
  *
- * 这三份模板同时承担三个职责：
- *   1. D1 seed 数据（migration 0002）
+ * 内置模板同时承担三个职责：
+ *   1. D1 seed 数据（migration 0002 起改为代码内置，不入库）
  *   2. 「新建模板」的预设起点
  *   3. 模板语法的参考实现
  */
@@ -647,6 +647,302 @@ const TECHNICAL_CSS = `
 `;
 
 /* ============================================================
+ * 酒红商务：无头像信息栏 + 三角箭头分节
+ * ============================================================ */
+
+const BUSINESS_HTML = `
+<article class="cv">
+  <header class="head">
+    <div class="head-left">
+      <h1 class="name">{{basics.name | default('你的姓名')}}</h1>
+      {{#if basics.headline}}
+        <p class="intent">求职意向 · {{basics.headline}}</p>
+      {{/if}}
+    </div>
+    <ul class="head-right">
+      {{#if basics.phone}}
+        <li><em>电话</em><span>{{basics.phone}}</span></li>
+      {{/if}}
+      {{#if basics.email}}
+        <li><em>邮箱</em><span>{{basics.email}}</span></li>
+      {{/if}}
+      {{#if basics.location}}
+        <li><em>所在地</em><span>{{basics.location}}</span></li>
+      {{/if}}
+      {{#if basics.wechat}}
+        <li><em>微信</em><span>{{basics.wechat}}</span></li>
+      {{/if}}
+      {{#if basics.url}}
+        <li><em>主页</em><span>{{basics.url}}</span></li>
+      {{/if}}
+    </ul>
+  </header>
+
+  {{#each sections}}
+    {{#unless this.isEmpty}}
+      <section class="sec sec--{{this.type}}">
+        <h2 class="sec-title">{{this.name}}</h2>
+
+        {{#if this.isText}}
+          <div class="rich summary">{{& this.contentSafe}}</div>
+        {{/if}}
+
+        {{#if this.type | eq('skills')}}
+          <ul class="compact-list">
+            {{#each this.items}}
+              <li>
+                <strong>{{this.title}}</strong>
+                {{#if this.keywords}}
+                  <span>：{{#each this.keywords}}{{#unless @first}}、{{/unless}}{{this}}{{/each}}</span>
+                {{else}}
+                  {{#if this.descriptionSafe}}
+                    <span>：</span><span class="rich-inline">{{& this.descriptionSafe}}</span>
+                  {{/if}}
+                {{/if}}
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          {{#if this.type | eq('languages')}}
+            <ul class="compact-list">
+              {{#each this.items}}
+                <li>
+                  <strong>{{this.title}}</strong>
+                  {{#if this.subtitle}}<span>：{{this.subtitle}}</span>{{/if}}
+                </li>
+              {{/each}}
+            </ul>
+          {{else}}
+            {{#if this.type | eq('experience')}}
+              {{#each this.items}}
+                <div class="item">
+                  <div class="item-row">
+                    <strong class="item-primary">{{this.raw.company}}</strong>
+                    {{#if this.dateRange}}<span class="date">{{this.dateRange}}</span>{{/if}}
+                  </div>
+                  {{#if this.raw.position}}
+                    <div class="item-row item-row--sub">
+                      <span class="item-secondary">{{this.raw.position}}</span>
+                      {{#if this.meta}}<span class="loc">{{this.meta}}</span>{{/if}}
+                    </div>
+                  {{/if}}
+                  {{#if this.descriptionSafe}}<div class="rich">{{& this.descriptionSafe}}</div>{{/if}}
+                </div>
+              {{/each}}
+            {{else}}
+              {{#each this.items}}
+                <div class="item">
+                  <div class="item-row">
+                    <strong class="item-primary">{{this.title}}</strong>
+                    {{#if this.dateRange}}<span class="date">{{this.dateRange}}</span>{{/if}}
+                  </div>
+                  {{#if this.subtitle}}
+                    <div class="item-row item-row--sub">
+                      <span class="item-secondary">{{this.subtitle}}</span>
+                      {{#if this.raw.location}}<span class="loc">{{this.raw.location}}</span>{{/if}}
+                    </div>
+                  {{else}}
+                    {{#if this.raw.location}}
+                      <div class="item-row item-row--sub">
+                        <span class="item-secondary"></span>
+                        <span class="loc">{{this.raw.location}}</span>
+                      </div>
+                    {{/if}}
+                  {{/if}}
+                  {{#if this.descriptionSafe}}<div class="rich">{{& this.descriptionSafe}}</div>{{/if}}
+                  {{#if this.keywords}}
+                    <div class="tags">{{#each this.keywords}}<span>{{this}}</span>{{/each}}</div>
+                  {{/if}}
+                </div>
+              {{/each}}
+            {{/if}}
+          {{/if}}
+        {{/if}}
+      </section>
+    {{/unless}}
+  {{/each}}
+</article>
+`;
+
+const BUSINESS_CSS = `
+.cv {
+  padding: var(--page-margin-top) var(--page-margin-right) var(--page-margin-bottom) var(--page-margin-left);
+  font-family: var(--tpl-font-family), 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: var(--tpl-font-size);
+  line-height: var(--tpl-line-height);
+  color: var(--tpl-text-color);
+  background: #fff;
+}
+
+/* —— 页眉：左姓名意向 / 右联系方式，酒红底边 —— */
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px 28px;
+  margin: 0 0 20px;
+  padding: 0 0 14px;
+  border-bottom: 2px solid var(--tpl-primary-color);
+}
+.head-left {
+  flex: 1;
+  min-width: 0;
+}
+.name {
+  margin: 0;
+  padding: 0;
+  font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif;
+  font-size: 1.7em;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.06em;
+  color: var(--tpl-text-color);
+}
+.intent {
+  margin: 6px 0 0;
+  font-size: 0.9em;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--tpl-muted-color);
+  word-break: break-word;
+}
+.head-right {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: right;
+}
+.head-right li {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  line-height: 1.55;
+  font-size: 0.9em;
+}
+.head-right li + li {
+  margin-top: 2px;
+}
+.head-right em {
+  flex-shrink: 0;
+  font-style: normal;
+  font-weight: 400;
+  color: var(--tpl-muted-color);
+}
+.head-right span {
+  font-weight: 600;
+  color: var(--tpl-text-color);
+  word-break: break-all;
+}
+
+/* —— 分节：三角箭头 + 延伸横线 —— */
+.sec {
+  margin: 0 0 var(--tpl-section-gap);
+}
+.sec-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif;
+  font-size: 1.08em;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--tpl-primary-color);
+  break-after: avoid;
+  page-break-after: avoid;
+}
+.sec-title::before {
+  content: '';
+  flex-shrink: 0;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid var(--tpl-primary-color);
+}
+.sec-title::after {
+  content: '';
+  flex: 1;
+  min-width: 12px;
+  height: 1px;
+  background: var(--tpl-primary-color);
+  margin-left: 2px;
+}
+
+/* —— 条目：主标题/日期同行，副标题/地点同行 —— */
+.item {
+  margin: 0 0 14px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.item-row--sub {
+  margin-top: 2px;
+}
+.item-primary {
+  font-family: var(--tpl-heading-font-family), var(--tpl-font-family), sans-serif;
+  font-size: 1em;
+  font-weight: 700;
+  color: var(--tpl-text-color);
+}
+.item-secondary {
+  font-size: 0.92em;
+  color: var(--tpl-text-color);
+}
+.date,
+.loc {
+  flex-shrink: 0;
+  font-size: 0.88em;
+  color: var(--tpl-muted-color);
+  white-space: nowrap;
+}
+
+.rich {
+  margin-top: 5px;
+}
+.rich p { margin: 0 0 0.3em; }
+.rich p:last-child { margin-bottom: 0; }
+.rich ul, .rich ol {
+  margin: 0.15em 0 0.3em;
+  padding-left: 1.25em;
+}
+.rich li { margin: 0.18em 0; }
+.rich a { color: inherit; text-decoration: underline; }
+.summary { margin-top: 0; }
+
+.compact-list {
+  margin: 0;
+  padding-left: 1.25em;
+}
+.compact-list li {
+  margin: 0.25em 0;
+}
+.compact-list .rich-inline p {
+  display: inline;
+  margin: 0;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+.tags span {
+  font-size: 0.82em;
+  color: var(--tpl-muted-color);
+}
+`;
+
+/* ============================================================
  * 导出
  * ============================================================ */
 
@@ -722,6 +1018,30 @@ export const BUILTIN_TEMPLATES: IBuiltinTemplate[] = [
         mutedColor: '#555555',
         backgroundColor: '#ffffff',
         showAvatar: false,
+        headingFontFamily: 'PingFang SC, Microsoft YaHei',
+      },
+    }),
+  },
+  {
+    id: 'business',
+    name: '酒红商务',
+    description: '左右分栏基础信息 + 三角箭头分节，适合传统行业',
+    config: build({
+      title: '酒红商务',
+      layout: 'single-column',
+      primaryColor: '#A83C4E',
+      fontFamily: 'PingFang SC, Microsoft YaHei',
+      fontSize: 13,
+      spacing: 1.45,
+      html: BUSINESS_HTML,
+      css: BUSINESS_CSS,
+      tags: ['单栏', '商务', '酒红'],
+      variableOverrides: {
+        sectionGap: '20px',
+        textColor: '#1a1a1a',
+        mutedColor: '#6b6b6b',
+        showAvatar: false,
+        dateFormat: 'YYYY年MM月',
         headingFontFamily: 'PingFang SC, Microsoft YaHei',
       },
     }),

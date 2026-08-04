@@ -24,7 +24,7 @@ export function updateResumeApi(data: {
   template_id?: string;
   is_public?: boolean;
   slug?: string;
-}): Promise<IApiResponse<{ resume_id: string }>> {
+}): Promise<IApiResponse<{ resume_id: string; is_public?: boolean; share_token?: string | null }>> {
   return request.post('/api/resume-service/v1/update-resume', data).then((r) => r.data);
 }
 
@@ -38,4 +38,19 @@ export function cloneResumeApi(
   return request
     .post('/api/resume-service/v1/clone-resume', { resume_id: resumeId })
     .then((r) => r.data);
+}
+
+/** 公开分享预览（无需登录）；返回最新简历数据 + 模板配置 */
+export interface ISharedResumePayload {
+  resume_id: string;
+  title: string;
+  slug: string;
+  template_id: string;
+  data: IResumeData;
+  template_config: unknown;
+  updated_at: string;
+}
+
+export function getSharedResumeApi(shareToken: string): Promise<IApiResponse<ISharedResumePayload>> {
+  return request.post('/api/share-service/v1/get-resume', { share_token: shareToken }).then((r) => r.data);
 }

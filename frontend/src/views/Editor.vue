@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useResumeStore } from '/@/stores/resume';
 import { exportResumePdf } from '/@/features/export/exportPdf';
+import { copyText } from '/@/utils/clipboard';
 import EditorNav from '/@/components/editor/EditorNav.vue';
 import BasicsForm from '/@/components/editor/BasicsForm.vue';
 import SectionEditor from '/@/components/editor/SectionEditor.vue';
@@ -15,6 +16,8 @@ const route = useRoute();
 const router = useRouter();
 const resumeStore = useResumeStore();
 const isExportingPdf = ref(false);
+const shareVisible = ref(false);
+const isTogglingShare = ref(false);
 
 const SECTION_PREFIX = 'section:';
 
@@ -34,6 +37,11 @@ const activePaneTitle = computed(() => {
   if (activeKey.value === 'theme') return '主题';
   const section = resumeStore.sortedSections.find((s) => s.id === activeSectionId.value);
   return section?.name || '模块';
+});
+
+const shareUrl = computed(() => {
+  if (!resumeStore.shareToken || typeof window === 'undefined') return '';
+  return `${window.location.origin}/s/${resumeStore.shareToken}`;
 });
 
 let autoSaveTimer: ReturnType<typeof setInterval> | null = null;
@@ -95,6 +103,33 @@ async function handleExportPdf() {
   }
 }
 
+function openShare() {
+  shareVisible.value = true;
+}
+
+async function handleShareToggle(enabled: boolean) {
+  if (isTogglingShare.value) return;
+  isTogglingShare.value = true;
+  try {
+    // 开启前先保存最新内容，避免分享页看到旧稿
+    if (enabled && resumeStore.isDirty) {
+      await resumeStore.saveResume();
+    }
+    await resumeStore.setPublicShare(enabled);
+    ElMessage.success(enabled ? '已开启在线分享' : '已关闭在线分享');
+  } catch {
+    // 错误提示由 request 拦截器处理
+  } finally {
+    isTogglingShare.value = false;
+  }
+}
+
+async function handleCopyShareLink() {
+  if (!shareUrl.value) return;
+  const ok = await copyText(shareUrl.value);
+  ElMessage[ok ? 'success' : 'error'](ok ? '链接已复制' : '复制失败，请手动选择链接');
+}
+
 function goBack() {
   router.push('/');
 }
@@ -119,11 +154,13 @@ function onSelect(key: string) {
         />
         <el-tag v-if="resumeStore.isDirty" type="warning" size="small" effect="plain">未保存</el-tag>
         <el-tag v-else type="success" size="small" effect="plain">已同步</el-tag>
+        <el-tag v-if="resumeStore.isPublic" type="info" size="small" effect="plain">已分享</el-tag>
       </div>
       <div class="right">
         <el-button :loading="resumeStore.isSaving" type="primary" title="Ctrl/⌘ + S" @click="handleSave">
           保存
         </el-button>
+        <el-button @click="openShare">分享</el-button>
         <el-button :loading="isExportingPdf" @click="handleExportPdf">导出 PDF</el-button>
       </div>
     </header>
@@ -158,6 +195,38 @@ function onSelect(key: string) {
         </div>
       </section>
     </div>
+
+    <el-dialog
+      v-model="shareVisible"
+      title="在线分享"
+      width="480px"
+      class="share-dialog"
+      destroy-on-close
+    >
+      <div class="share-body">
+        <div class="share-row">
+          <div>
+            <p class="share-title">公开预览链接</p>
+            <p class="share-desc">开启后生成预览链接；关闭后再开启会生成新链接，旧链接立即失效。保存修改后，当前链接内容会自动更新。</p>
+          </div>
+          <el-switch
+            :model-value="resumeStore.isPublic"
+            :loading="isTogglingShare"
+            :disabled="isTogglingShare"
+            @change="(val: string | number | boolean) => handleShareToggle(Boolean(val))"
+          />
+        </div>
+
+        <div v-if="resumeStore.isPublic" class="share-link-box">
+          <el-input :model-value="shareUrl" readonly>
+            <template #append>
+              <el-button @click="handleCopyShareLink">复制</el-button>
+            </template>
+          </el-input>
+          <p class="share-tip">关闭分享后原链接立即失效；再次开启会生成全新链接。</p>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -310,5 +379,44 @@ function onSelect(key: string) {
     background: white !important;
     padding: 0 !important;
   }
+}
+
+.share-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.share-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.share-title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.share-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.share-link-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.share-tip {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
 }
 </style>

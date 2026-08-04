@@ -193,6 +193,7 @@ export function createBaseVariables(theme: {
       options: [
         { label: '2022.03', value: 'YYYY.MM' },
         { label: '2022年3月', value: 'YYYY年M月' },
+        { label: '2022年03月', value: 'YYYY年MM月' },
         { label: 'Mar 2022', value: 'MMM YYYY' },
         { label: '2022', value: 'YYYY' },
       ],
