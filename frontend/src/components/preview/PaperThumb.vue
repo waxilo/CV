@@ -19,8 +19,19 @@ const props = withDefaults(
     pageLayout?: 'vertical' | 'flip';
     /** flip 模式下当前页（从 0 开始） */
     pageIndex?: number;
+    /**
+     * 首次量到有效宽度后锁定缩放。
+     * 分享页等场景避免手机捏合缩放触发 ResizeObserver 反复改 scale，造成「布局跟着变」。
+     */
+    freezeScale?: boolean;
   }>(),
-  { fallbackScale: 0.26, showAllPages: false, pageLayout: 'vertical', pageIndex: 0 }
+  {
+    fallbackScale: 0.26,
+    showAllPages: false,
+    pageLayout: 'vertical',
+    pageIndex: 0,
+    freezeScale: false,
+  }
 );
 
 const emit = defineEmits<{
@@ -33,6 +44,7 @@ const A4_WIDTH_PX = (210 * 96) / 25.4;
 const rootRef = ref<HTMLElement | null>(null);
 const measuredWidth = ref(0);
 const pageCount = ref(1);
+const isScaleFrozen = ref(false);
 let observer: ResizeObserver | null = null;
 
 const isFlip = computed(() => props.showAllPages && props.pageLayout === 'flip');
@@ -55,13 +67,35 @@ const paperStyle = computed(() => {
   };
 });
 
+/** 浏览器捏合缩放时不应改写布局缩放，否则会与视觉缩放叠加并像在改排版 */
+function isBrowserZooming(): boolean {
+  const viewport = window.visualViewport;
+  if (!viewport) return false;
+  return Math.abs(viewport.scale - 1) > 0.02;
+}
+
 function measure(width: number) {
-  if (Math.abs(width - measuredWidth.value) > 0.5) measuredWidth.value = width;
+  if (width <= 0) return;
+  if (props.freezeScale && isScaleFrozen.value) return;
+  if (isBrowserZooming()) return;
+  if (Math.abs(width - measuredWidth.value) > 0.5) {
+    measuredWidth.value = width;
+    if (props.freezeScale) isScaleFrozen.value = true;
+  }
 }
 
 function handlePageCount(value: number): void {
   pageCount.value = Math.max(1, value);
   emit('page-count', pageCount.value);
+}
+
+function handleOrientationChange(): void {
+  // 横竖屏切换后允许重新量一次
+  if (!props.freezeScale) return;
+  isScaleFrozen.value = false;
+  requestAnimationFrame(() => {
+    if (rootRef.value) measure(rootRef.value.clientWidth);
+  });
 }
 
 onMounted(() => {
@@ -73,11 +107,13 @@ onMounted(() => {
     if (entry) measure(entry.contentRect.width);
   });
   observer.observe(rootRef.value);
+  window.addEventListener('orientationchange', handleOrientationChange);
 });
 
 onBeforeUnmount(() => {
   observer?.disconnect();
   observer = null;
+  window.removeEventListener('orientationchange', handleOrientationChange);
 });
 </script>
 

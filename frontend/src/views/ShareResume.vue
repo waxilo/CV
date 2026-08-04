@@ -71,6 +71,7 @@ onMounted(async () => {
           :data="payload.data"
           :config="config"
           :fallback-scale="0.85"
+          freeze-scale
           show-all-pages
           page-layout="vertical"
         />
