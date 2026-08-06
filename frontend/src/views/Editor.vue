@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useResumeStore } from '/@/stores/resume';
 import { exportResumePdf } from '/@/features/export/exportPdf';
 import { exportResumeHtml } from '/@/features/export/exportHtml';
+import { importResumeFromHtmlFile, ImportHtmlError } from '/@/features/export/importHtml';
 import { copyText } from '/@/utils/clipboard';
 import EditorNav from '/@/components/editor/EditorNav.vue';
 import BasicsForm from '/@/components/editor/BasicsForm.vue';
@@ -18,6 +19,8 @@ const router = useRouter();
 const resumeStore = useResumeStore();
 const isExportingPdf = ref(false);
 const isExportingHtml = ref(false);
+const isImportingHtml = ref(false);
+const htmlFileInputRef = ref<HTMLInputElement | null>(null);
 const shareVisible = ref(false);
 const isTogglingShare = ref(false);
 /** 收起左侧导航+表单，只留简历预览 */
@@ -140,6 +143,52 @@ function onExportCommand(command: string) {
   }
 }
 
+function triggerImportHtml() {
+  if (isImportingHtml.value || isExportingPdf.value || isExportingHtml.value) return;
+  htmlFileInputRef.value?.click();
+}
+
+async function handleImportHtmlFile(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file || !resumeStore.data) return;
+
+  isImportingHtml.value = true;
+  try {
+    const imported = await importResumeFromHtmlFile(file);
+
+    if (resumeStore.isDirty) {
+      await ElMessageBox.confirm(
+        '当前有未保存修改。导入将用 HTML 中的简历数据覆盖编辑器内容（不会立刻上传，需手动保存）。是否继续？',
+        '导入 HTML',
+        { type: 'warning', confirmButtonText: '继续导入', cancelButtonText: '取消' }
+      );
+    } else {
+      await ElMessageBox.confirm(
+        '将用 HTML 中 #cv-data 的简历数据覆盖当前编辑内容。导入后需手动保存才会同步到服务器。是否继续？',
+        '导入 HTML',
+        { type: 'info', confirmButtonText: '导入', cancelButtonText: '取消' }
+      );
+    }
+
+    resumeStore.replaceResumeData(imported);
+    ElMessage.success('已导入，请检查预览后保存');
+  } catch (error) {
+    // Element Plus：用户取消 confirm 时 reject 'cancel'
+    if (error === 'cancel') return;
+    const message =
+      error instanceof ImportHtmlError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : '导入失败，请稍后重试';
+    ElMessage.error(message);
+  } finally {
+    isImportingHtml.value = false;
+  }
+}
+
 function openShare() {
   shareVisible.value = true;
 }
@@ -221,22 +270,42 @@ function togglePreviewImmersive() {
         <el-button :type="resumeStore.isPublic ? 'success' : 'default'" @click="openShare">
           分享
         </el-button>
+        <el-button
+          :loading="isImportingHtml"
+          :disabled="isExportingPdf || isExportingHtml"
+          @click="triggerImportHtml"
+        >
+          导入 HTML
+        </el-button>
         <el-dropdown trigger="click" @command="onExportCommand">
-          <el-button :loading="isExportingPdf || isExportingHtml">
+          <el-button :loading="isExportingPdf || isExportingHtml" :disabled="isImportingHtml">
             导出
             <el-icon class="el-icon--right"><ArrowDown /></el-icon>
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="pdf" :disabled="isExportingPdf || isExportingHtml">
+              <el-dropdown-item
+                command="pdf"
+                :disabled="isExportingPdf || isExportingHtml || isImportingHtml"
+              >
                 导出 PDF
               </el-dropdown-item>
-              <el-dropdown-item command="html" :disabled="isExportingPdf || isExportingHtml">
-                导出 HTML
+              <el-dropdown-item
+                command="html"
+                :disabled="isExportingPdf || isExportingHtml || isImportingHtml"
+              >
+                导出 HTML（含 AI 可改 JSON）
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
+        <input
+          ref="htmlFileInputRef"
+          class="hidden-file-input"
+          type="file"
+          accept=".html,text/html"
+          @change="handleImportHtmlFile"
+        />
       </div>
     </header>
 
@@ -333,6 +402,10 @@ function togglePreviewImmersive() {
 
 .title-input {
   width: 220px;
+}
+
+.hidden-file-input {
+  display: none;
 }
 
 /* 三段式：左两段合拢 + 预览（flex + max-width，比 grid 列宽过渡更顺） */

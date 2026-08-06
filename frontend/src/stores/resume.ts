@@ -366,6 +366,14 @@ export const useResumeStore = defineStore('resume', () => {
     markDirty();
   }
 
+  /**
+   * 用导入的结构化数据整体替换当前简历（保留当前 resume_id / 分享状态）。
+   */
+  function replaceResumeData(next: IResumeData) {
+    data.value = JSON.parse(JSON.stringify(next)) as IResumeData;
+    markDirty();
+  }
+
   return {
     list,
     currentId,
@@ -397,6 +405,7 @@ export const useResumeStore = defineStore('resume', () => {
     reorderItems,
     updateSectionContent,
     setTemplate,
+    replaceResumeData,
     updateTheme,
     updateTemplateVar,
     resetTemplateVars,

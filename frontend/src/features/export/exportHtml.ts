@@ -1,8 +1,9 @@
 /**
  * 导出带模板样式的纯 HTML+CSS 单文件。
  *
- * 复用预览/PDF 同一套 renderTemplate；在离屏 DOM 跑分页垫片后序列化，
- * 产物无脚本，可直接用浏览器打开或打印。
+ * 复用预览/PDF 同一套 renderTemplate；在离屏 DOM 跑分页垫片后序列化。
+ * 额外内嵌 #cv-data（结构化 JSON）与 AI 提示词，支持「导出 → AI 改 JSON → 导入」往返。
+ * application/json / text/plain 的 script 不会执行，页面仍为静态文档。
  */
 
 import type { IResumeData } from '/@/types/resume';
@@ -10,6 +11,7 @@ import { renderTemplate } from '/@/features/template-renderer';
 import { paginateResumeRoot } from '/@/features/template-renderer/paginate';
 import { resolveExportTemplateConfig } from './exportPdf';
 import { downloadTextFile, sanitizeFilename } from './filename';
+import { buildCvPayloadHtml } from './cvPayload';
 
 const PX_PER_MM = 96 / 25.4;
 const A4_WIDTH_MM = 210;
@@ -29,13 +31,15 @@ export interface IBuildHtmlDocumentOptions {
   bodyHtml: string;
   css: string;
   title: string;
+  /** 内嵌的结构化简历；有则写入 #cv-data 与 AI 提示 */
+  resumeData?: IResumeData;
   widthMm?: number;
   heightMm?: number;
   pageCount?: number;
 }
 
 /**
- * 组装可独立打开的 HTML 文档（仅 HTML + CSS，无脚本）。
+ * 组装可独立打开的 HTML 文档（展示层无脚本；数据层为 application/json）。
  */
 export function buildExportHtmlDocument(options: IBuildHtmlDocumentOptions): string {
   const widthMm = options.widthMm ?? A4_WIDTH_MM;
@@ -44,6 +48,7 @@ export function buildExportHtmlDocument(options: IBuildHtmlDocumentOptions): str
   const title = escapeHtml(options.title || '简历');
   // 防止 CSS 中的 "</style>" 提前闭合 style 标签
   const css = String(options.css || '').replace(/<\/style/gi, '<\\/style');
+  const payloadHtml = options.resumeData ? buildCvPayloadHtml(options.resumeData) : '';
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -59,9 +64,25 @@ html, body {
 }
 body {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   padding: 24px 16px;
   box-sizing: border-box;
+  gap: 12px;
+}
+.cv-ai-hint {
+  width: ${widthMm}mm;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+}
+.cv-ai-hint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
 }
 .cv-export-sheet {
   width: ${widthMm}mm;
@@ -86,6 +107,9 @@ body {
   body {
     display: block;
   }
+  .cv-ai-hint {
+    display: none !important;
+  }
   .cv-export-sheet {
     box-shadow: none;
     width: ${widthMm}mm;
@@ -102,6 +126,7 @@ ${css}
 </style>
 </head>
 <body>
+${payloadHtml}
 <div class="cv-export-sheet">
 ${options.bodyHtml}
 </div>
@@ -187,6 +212,7 @@ export async function resumeToHtmlDocument(options: IExportHtmlOptions): Promise
       bodyHtml,
       css: result.css,
       title,
+      resumeData: options.data,
       widthMm: result.context.page.widthMm || A4_WIDTH_MM,
       heightMm: result.context.page.heightMm || A4_HEIGHT_MM,
       pageCount,
