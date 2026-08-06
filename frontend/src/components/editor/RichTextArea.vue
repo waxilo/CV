@@ -12,7 +12,7 @@ const props = withDefaults(
   {
     modelValue: '',
     rows: 3,
-    placeholder: '直接编辑，效果即时可见。可加粗、斜体、列表与链接',
+    placeholder: '直接编辑，效果即时可见。可加粗、斜体、有序/无序列表与链接',
   }
 );
 
@@ -77,6 +77,10 @@ function applyList() {
   runCommand('insertUnorderedList');
 }
 
+function applyOrderedList() {
+  runCommand('insertOrderedList');
+}
+
 function applyLink() {
   editorRef.value?.focus();
   const selection = window.getSelection();
@@ -130,18 +134,31 @@ onMounted(() => {
 <template>
   <div class="rich-text-area">
     <div class="toolbar">
-      <el-button size="small" text class="tool-btn" title="加粗（Ctrl/⌘ + B）" @mousedown.prevent @click="applyBold">
-        <span class="label-b">B</span>
-      </el-button>
-      <el-button size="small" text class="tool-btn" title="斜体（Ctrl/⌘ + I）" @mousedown.prevent @click="applyItalic">
-        <span class="label-i">I</span>
-      </el-button>
-      <el-button size="small" text class="tool-btn" title="无序列表" @mousedown.prevent @click="applyList">
-        <el-icon><List /></el-icon>
-      </el-button>
-      <el-button size="small" text class="tool-btn" title="链接" @mousedown.prevent @click="applyLink">
-        <el-icon><Link /></el-icon>
-      </el-button>
+      <el-tooltip content="加粗（Ctrl/⌘ + B）" placement="top" :show-after="200">
+        <el-button size="small" text class="tool-btn" aria-label="加粗" @mousedown.prevent @click="applyBold">
+          <span class="label-b">B</span>
+        </el-button>
+      </el-tooltip>
+      <el-tooltip content="斜体（Ctrl/⌘ + I）" placement="top" :show-after="200">
+        <el-button size="small" text class="tool-btn" aria-label="斜体" @mousedown.prevent @click="applyItalic">
+          <span class="label-i">I</span>
+        </el-button>
+      </el-tooltip>
+      <el-tooltip content="无序列表" placement="top" :show-after="200">
+        <el-button size="small" text class="tool-btn" aria-label="无序列表" @mousedown.prevent @click="applyList">
+          <el-icon><List /></el-icon>
+        </el-button>
+      </el-tooltip>
+      <el-tooltip content="有序列表" placement="top" :show-after="200">
+        <el-button size="small" text class="tool-btn" aria-label="有序列表" @mousedown.prevent @click="applyOrderedList">
+          <span class="label-ol">1.</span>
+        </el-button>
+      </el-tooltip>
+      <el-tooltip content="插入链接" placement="top" :show-after="200">
+        <el-button size="small" text class="tool-btn" aria-label="插入链接" @mousedown.prevent @click="applyLink">
+          <el-icon><Link /></el-icon>
+        </el-button>
+      </el-tooltip>
     </div>
 
     <div
@@ -189,6 +206,14 @@ onMounted(() => {
     font-family: Georgia, 'Times New Roman', serif;
     font-size: 14px;
     line-height: 1;
+  }
+
+  .label-ol {
+    font-weight: 600;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1;
+    letter-spacing: -0.02em;
   }
 
   .wysiwyg {
