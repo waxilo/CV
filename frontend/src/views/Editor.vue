@@ -294,7 +294,7 @@ function togglePreviewImmersive() {
                 command="html"
                 :disabled="isExportingPdf || isExportingHtml || isImportingHtml"
               >
-                导出 HTML（含 AI 可改 JSON）
+                导出 HTML（含 AI 提示词）
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>

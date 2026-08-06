@@ -685,30 +685,29 @@ const BUSINESS_HTML = `
         {{/if}}
 
         {{#if this.type | eq('skills')}}
-          <ul class="compact-list">
-            {{#each this.items}}
-              <li>
-                <strong>{{this.title}}</strong>
+          {{#each this.items}}
+            <div class="item skill-item">
+              <div class="skill-head">
+                <strong class="item-primary">{{this.title}}</strong>
                 {{#if this.keywords}}
-                  <span>：{{#each this.keywords}}{{#unless @first}}、{{/unless}}{{this}}{{/each}}</span>
-                {{else}}
-                  {{#if this.descriptionSafe}}
-                    <span>：</span><span class="rich-inline">{{& this.descriptionSafe}}</span>
-                  {{/if}}
+                  <span class="skill-keywords">：{{#each this.keywords}}{{#unless @first}}、{{/unless}}{{this}}{{/each}}</span>
                 {{/if}}
-              </li>
-            {{/each}}
-          </ul>
+              </div>
+              {{#if this.descriptionSafe}}
+                <div class="rich">{{& this.descriptionSafe}}</div>
+              {{/if}}
+            </div>
+          {{/each}}
         {{else}}
           {{#if this.type | eq('languages')}}
-            <ul class="compact-list">
-              {{#each this.items}}
-                <li>
-                  <strong>{{this.title}}</strong>
-                  {{#if this.subtitle}}<span>：{{this.subtitle}}</span>{{/if}}
-                </li>
-              {{/each}}
-            </ul>
+            {{#each this.items}}
+              <div class="item skill-item">
+                <div class="skill-head">
+                  <strong class="item-primary">{{this.title}}</strong>
+                  {{#if this.subtitle}}<span class="skill-keywords">：{{this.subtitle}}</span>{{/if}}
+                </div>
+              </div>
+            {{/each}}
           {{else}}
             {{#if this.type | eq('experience')}}
               {{#each this.items}}
@@ -915,16 +914,27 @@ const BUSINESS_CSS = `
 .rich a { color: inherit; text-decoration: underline; }
 .summary { margin-top: 0; }
 
-.compact-list {
-  margin: 0;
-  padding-left: 1.25em;
+/* 技能/语言：标题独立成行，不进列表序号；描述里的列表才带圆点 */
+.sec--skills .skill-item,
+.sec--languages .skill-item {
+  margin: 0 0 8px;
 }
-.compact-list li {
-  margin: 0.25em 0;
+.skill-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0;
 }
-.compact-list .rich-inline p {
-  display: inline;
-  margin: 0;
+.skill-keywords {
+  font-weight: 400;
+  color: var(--tpl-text-color);
+}
+.sec--skills .skill-item .rich {
+  margin-top: 2px;
+}
+.sec--skills .skill-item .rich ul,
+.sec--skills .skill-item .rich ol {
+  margin-top: 0.1em;
 }
 
 .tags {

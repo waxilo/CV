@@ -24,7 +24,7 @@ describe('HTML 往返：内嵌 JSON + AI 提示', () => {
     expect(html).toContain(`id="${CV_AI_PROMPT_SCRIPT_ID}"`);
     expect(html).toContain('type="application/json"');
     expect(html).toContain('type="text/plain"');
-    expect(html).toContain('只修改');
+    expect(html).toContain('每次编辑都生成');
     expect(html).toContain(encodeJsonForScriptTag(data).slice(0, 40));
     expect(html).toContain('cv-ai-hint');
     // 不应出现可执行的裸 script（无 type 或 javascript）
@@ -48,10 +48,10 @@ describe('HTML 往返：内嵌 JSON + AI 提示', () => {
     expect(imported.metadata.templateId).toBe(data.metadata.templateId);
   });
 
-  it('AI 提示词明确要求只改 JSON', () => {
-    expect(CV_AI_EDIT_PROMPT).toContain('只修改');
+  it('AI 提示词要求每次编辑生成完整新 HTML', () => {
+    expect(CV_AI_EDIT_PROMPT).toContain('每次编辑都必须生成一份全新的');
+    expect(CV_AI_EDIT_PROMPT).toContain('完整 HTML');
     expect(CV_AI_EDIT_PROMPT).toContain('cv-data');
-    expect(CV_AI_EDIT_PROMPT).toContain('不要修改');
   });
 
   it('缺少 #cv-data 时抛错', () => {
