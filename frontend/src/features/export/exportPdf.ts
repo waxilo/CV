@@ -12,6 +12,7 @@ import type { IResumeData } from '/@/types/resume';
 import { normalizeTemplateConfig, renderTemplate } from '/@/features/template-renderer';
 import { paginateResumeRoot } from '/@/features/template-renderer/paginate';
 import { useTemplateStore } from '/@/stores/template';
+import { sanitizeFilename } from './filename';
 
 const PX_PER_MM = 96 / 25.4;
 const A4_WIDTH_MM = 210;
@@ -55,11 +56,6 @@ export async function resolveExportTemplateConfig(
 
   const builtin = getBuiltinTemplate(templateId);
   return normalizeTemplateConfig(builtin?.config || getBuiltinTemplate('minimal')?.config);
-}
-
-function sanitizeFilename(name: string): string {
-  const trimmed = (name || '简历').trim() || '简历';
-  return trimmed.replace(/[\\/:*?"<>|]+/g, '_').slice(0, 80);
 }
 
 function waitForNextPaint(): Promise<void> {

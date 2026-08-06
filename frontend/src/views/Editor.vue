@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useResumeStore } from '/@/stores/resume';
 import { exportResumePdf } from '/@/features/export/exportPdf';
+import { exportResumeHtml } from '/@/features/export/exportHtml';
 import { copyText } from '/@/utils/clipboard';
 import EditorNav from '/@/components/editor/EditorNav.vue';
 import BasicsForm from '/@/components/editor/BasicsForm.vue';
@@ -16,6 +17,7 @@ const route = useRoute();
 const router = useRouter();
 const resumeStore = useResumeStore();
 const isExportingPdf = ref(false);
+const isExportingHtml = ref(false);
 const shareVisible = ref(false);
 const isTogglingShare = ref(false);
 /** 收起左侧导航+表单，只留简历预览 */
@@ -110,6 +112,34 @@ async function handleExportPdf() {
   }
 }
 
+async function handleExportHtml() {
+  if (!resumeStore.data || isExportingHtml.value) return;
+  isExportingHtml.value = true;
+  try {
+    await exportResumeHtml({
+      data: resumeStore.data,
+      filename: resumeStore.title || resumeStore.data.basics.name || '简历',
+      title: resumeStore.title || resumeStore.data.basics.name || '简历',
+    });
+    ElMessage.success('HTML 已开始下载');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '导出失败，请稍后重试';
+    ElMessage.error(message);
+  } finally {
+    isExportingHtml.value = false;
+  }
+}
+
+function onExportCommand(command: string) {
+  if (command === 'pdf') {
+    void handleExportPdf();
+    return;
+  }
+  if (command === 'html') {
+    void handleExportHtml();
+  }
+}
+
 function openShare() {
   shareVisible.value = true;
 }
@@ -191,7 +221,22 @@ function togglePreviewImmersive() {
         <el-button :type="resumeStore.isPublic ? 'success' : 'default'" @click="openShare">
           分享
         </el-button>
-        <el-button :loading="isExportingPdf" @click="handleExportPdf">导出 PDF</el-button>
+        <el-dropdown trigger="click" @command="onExportCommand">
+          <el-button :loading="isExportingPdf || isExportingHtml">
+            导出
+            <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="pdf" :disabled="isExportingPdf || isExportingHtml">
+                导出 PDF
+              </el-dropdown-item>
+              <el-dropdown-item command="html" :disabled="isExportingPdf || isExportingHtml">
+                导出 HTML
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
     </header>
 
