@@ -16,7 +16,7 @@ const resumeIdSchema = z.string().uuid().describe('简历 ID（UUID）');
 export function registerTools(server: McpServer, api: CvApiClient): void {
   server.tool(
     'list_resumes',
-    '列出当前账号下的所有简历（摘要：id、标题、模板、是否锁定、更新时间；不含完整正文）。改简历前先调用此工具拿到 resume_id。若原件已锁定或希望降低风险，请先 duplicate_resume 再改副本。',
+    '列出当前账号下的所有简历（摘要：id、标题、模板、是否锁定、更新时间；不含完整正文）。改简历前先调用此工具拿到 resume_id。账号为空时请先 create_resume。若原件已锁定或希望降低风险，请先 duplicate_resume 再改副本。',
     {},
     async () => {
       try {
@@ -33,6 +33,87 @@ export function registerTools(server: McpServer, api: CvApiClient): void {
           updated_at: item.updated_at,
         }));
         return textResult({ count: summaries.length, resumes: summaries });
+      } catch (error) {
+        return errorResult(error);
+      }
+    }
+  );
+
+  server.tool(
+    'create_resume',
+    '从零新建一份简历。新用户 / 账号无简历 / 迁移旧简历时用此工具。可选传入完整 data 一次性写入内容；不传则创建空壳，再 update_*。内置模板：modern / classic / minimal / technical / business。',
+    {
+      title: z
+        .string()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe('简历标题，默认「未命名简历」'),
+      template_id: z
+        .string()
+        .min(1)
+        .max(64)
+        .optional()
+        .describe('模板 ID，默认 modern；可选 classic / minimal / technical / business'),
+      data: z
+        .record(z.unknown())
+        .optional()
+        .describe(
+          '可选：完整 IResumeData（basics / sections / metadata）。迁移旧简历时直接传入，创建后立即写回。'
+        ),
+    },
+    async ({ title, template_id, data }) => {
+      try {
+        if (data !== undefined && !isResumeDataShape(data)) {
+          return errorResult(
+            'data 结构不完整：需包含 basics、sections、metadata.templateId、metadata.theme'
+          );
+        }
+
+        const created = await api.createResume({
+          title,
+          template_id,
+        });
+
+        if (!data) {
+          return textResult({
+            ok: true,
+            message:
+              '已创建空简历。可用 update_resume / update_basics / update_section 写入内容；迁移旧简历也可再次 create_resume 并带上 data。',
+            resume_id: created.resume_id,
+            title: created.title,
+            slug: created.slug,
+            template_id: created.template_id,
+            data: created.data,
+          });
+        }
+
+        // 与所选模板对齐：优先用调用方 metadata.templateId，否则用创建时的模板
+        const nextData: IResumeData = {
+          ...data,
+          metadata: {
+            ...data.metadata,
+            templateId: data.metadata.templateId || created.template_id,
+          },
+        };
+
+        const updated = await api.updateResume({
+          resume_id: created.resume_id,
+          data: nextData,
+          template_id: nextData.metadata.templateId,
+          title,
+        });
+
+        return textResult({
+          ok: true,
+          message: '已创建简历并写入内容。后续改动请用返回的 resume_id。',
+          resume_id: created.resume_id,
+          title: title || created.title,
+          slug: created.slug,
+          template_id: nextData.metadata.templateId,
+          is_public: updated.is_public,
+          share_token: updated.share_token,
+        });
       } catch (error) {
         return errorResult(error);
       }

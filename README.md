@@ -118,7 +118,7 @@ npm publish --access public   # 需 npm 登录且具备 publish 权限
 4. Agent 写入全局 MCP（`npx -y @waxilo/cv-mcp`）后即可 `list_resumes` / 改简历
 5. 包有更新时：同一页 **一键复制更新提示词**，让 Agent 清 npx 缓存、拉最新包并重启 MCP
 
-推荐改简历流程：`list_resumes` → **`duplicate_resume`**（得到副本）→ 再 `update_*` 只改副本，降低覆盖原件的风险。锁定简历也可复制；副本默认未锁定。
+推荐改简历流程：空账号用 **`create_resume`**（可带完整 `data` 迁移旧简历）；已有简历则 `list_resumes` → **`duplicate_resume`**（得到副本）→ 再 `update_*` 只改副本，降低覆盖原件的风险。锁定简历也可复制；副本默认未锁定。
 
 锁定中的简历：MCP 可 `list` / `get` / `duplicate`，但直接 `update_*` 原件会收到 `RESUME_LOCKED`；请在首页预览弹窗解锁，或先复制再改副本。
 

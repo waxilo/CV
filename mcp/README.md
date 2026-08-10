@@ -50,6 +50,7 @@ npx clear-npx-cache
 | Tool | 作用 |
 |------|------|
 | `list_resumes` | 列出简历摘要（含 `is_locked`） |
+| `create_resume` | **从零新建**；可选传入完整 `data` 一次写入（适合迁移旧简历） |
 | `get_resume` | 拉取完整 JSON |
 | `duplicate_resume` | **推荐**：深拷贝副本（可自定义标题），再改副本，避免动原件 |
 | `update_resume` | 整份 data 写回 |
@@ -57,7 +58,11 @@ npx clear-npx-cache
 | `update_section` | 按 id/type 合并更新某一模块 |
 | `validate_resume_data` | 校验结构 |
 
-推荐流程：`list_resumes` → `duplicate_resume` → `get_resume(副本)` → `update_*`。锁定原件也可复制；副本默认未锁定。
+新用户 / 空账号：`create_resume`（可带 `data`）→ 网页刷新查看。
+
+已有简历：`list_resumes` → `duplicate_resume` → `get_resume(副本)` → `update_*`。锁定原件也可复制；副本默认未锁定。
+
+内置模板：`modern` / `classic` / `minimal` / `technical` / `business`（默认 `modern`）。
 
 ## 本地开发（维护者）
 

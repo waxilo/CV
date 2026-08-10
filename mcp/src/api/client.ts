@@ -35,6 +35,33 @@ export class CvApiClient {
     return res.data;
   }
 
+  /**
+   * 新建空简历（默认模板 modern）；可选随后由工具层写入完整 data。
+   */
+  async createResume(input: {
+    title?: string;
+    template_id?: string;
+    slug?: string;
+  }): Promise<{
+    resume_id: string;
+    title: string;
+    slug: string;
+    template_id: string;
+    data: IResumeData;
+  }> {
+    const res = await this.post<{
+      resume_id: string;
+      title: string;
+      slug: string;
+      template_id: string;
+      data: IResumeData;
+    }>('/api/resume-service/v1/create-resume', input);
+    if (!res.data) {
+      throw new CvApiError('创建响应为空', 502, 'CREATE_EMPTY');
+    }
+    return res.data;
+  }
+
   async updateResume(input: {
     resume_id: string;
     title?: string;

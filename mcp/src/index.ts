@@ -17,6 +17,11 @@ import { registerTools } from './tools/register.js';
 
 const INSTRUCTIONS = `你正在通过 MCP 编辑 CV Builder 简历。
 
+【从零创建 / 迁移旧简历】
+1. list_resumes；若 count=0 或用户要新建，调用 create_resume。
+2. 迁移：把旧简历整理成 IResumeData 后，create_resume({ title, template_id?, data }) 一次写入；或先 create 再 update_resume。
+3. 内置模板：modern / classic / minimal / technical / business（默认 modern）。
+
 【推荐工作流：先复制再改】
 1. list_resumes 选中源简历；若 is_locked=true，必须先 duplicate_resume。
 2. 默认先调用 duplicate_resume 得到新 resume_id（可自定义 title），再只改副本。
@@ -29,7 +34,7 @@ const INSTRUCTIONS = `你正在通过 MCP 编辑 CV Builder 简历。
 3. 写回前可用 validate_resume_data 检查结构。
 4. 尽量保留原有 section id、item id、order、visible、metadata.templateId。
 5. description / content 支持 Markdown（加粗、列表、链接）。
-6. 改完后用户在 CV Builder 网页刷新即可看到副本；导入 HTML 不是必需步骤。
+6. 改完后用户在 CV Builder 网页刷新即可看到；导入 HTML 不是必需步骤。
 
 【禁止】
 - 编造用户未提供的经历、公司、学历
@@ -51,7 +56,7 @@ async function main(): Promise<void> {
   const server = new McpServer(
     {
       name: 'cv-builder',
-      version: '0.1.3',
+      version: '0.1.4',
     },
     {
       instructions: INSTRUCTIONS,
