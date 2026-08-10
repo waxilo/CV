@@ -3,18 +3,17 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getBuiltinTemplate, type ITemplate, type ITemplateConfig } from '/@/types/template';
-import { useUserStore } from '/@/stores/user';
 import { useResumeStore } from '/@/stores/resume';
 import { useTemplateStore } from '/@/stores/template';
 import { migrateTemplateConfig } from '/@/features/template-renderer';
 import { createSampleResumeData } from '/@/features/template-renderer/sampleData';
 import { copyText } from '/@/utils/clipboard';
+import AppTopbar from '/@/components/AppTopbar.vue';
 import PaperThumb from '/@/components/preview/PaperThumb.vue';
 import ResumeFullPreview from '/@/components/preview/ResumeFullPreview.vue';
 import type { IResumeData, IResumeSummary } from '/@/types/resume';
 
 const router = useRouter();
-const userStore = useUserStore();
 const resumeStore = useResumeStore();
 const templateStore = useTemplateStore();
 const isCreating = ref(false);
@@ -22,7 +21,6 @@ const showCreateDialog = ref(false);
 const createTitle = ref('我的简历');
 const selectedTemplateId = ref('modern');
 const sampleResumeData = createSampleResumeData();
-const userInitial = computed(() => userStore.displayName.trim().charAt(0).toUpperCase() || 'U');
 
 const isPreviewVisible = ref(false);
 const isLargePreviewVisible = ref(false);
@@ -242,23 +240,6 @@ function handlePreviewWheel(event: WheelEvent) {
   goPreviewPage(event.deltaY > 0 ? 1 : -1);
 }
 
-function handleLogout() {
-  userStore.logout();
-  router.replace('/login');
-}
-
-function handleUserCommand(command: string) {
-  if (command === 'templates') {
-    router.push('/templates');
-    return;
-  }
-  if (command === 'mcp') {
-    router.push('/mcp');
-    return;
-  }
-  if (command === 'logout') handleLogout();
-}
-
 function formatDate(value: string): string {
   try {
     return new Intl.DateTimeFormat('zh-CN', {
@@ -301,55 +282,7 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
 
 <template>
   <div class="dashboard">
-    <header class="topbar no-print">
-      <div class="nav-inner">
-        <button class="brand" type="button" aria-label="返回简历首页" @click="router.push('/')">
-          <span class="mark">
-            <el-icon :size="18"><Document /></el-icon>
-          </span>
-          <strong>CV Builder</strong>
-        </button>
-
-        <div class="nav-actions">
-          <button class="nav-link" type="button" @click="router.push('/templates')">
-            模板中心
-          </button>
-          <button class="nav-link" type="button" @click="router.push('/mcp')">
-            MCP 接入
-          </button>
-          <el-dropdown trigger="click" placement="bottom-end" @command="handleUserCommand">
-            <button class="user-menu" type="button">
-              <span class="avatar">
-                <img
-                  v-if="userStore.user?.avatar_url"
-                  :src="userStore.user.avatar_url"
-                  :alt="userStore.displayName"
-                />
-                <span v-else>{{ userInitial }}</span>
-              </span>
-              <span class="user-name">{{ userStore.displayName }}</span>
-              <el-icon class="chevron"><ArrowDown /></el-icon>
-            </button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="templates">
-                  <el-icon><Collection /></el-icon>
-                  模板中心
-                </el-dropdown-item>
-                <el-dropdown-item command="mcp">
-                  <el-icon><Connection /></el-icon>
-                  MCP 接入
-                </el-dropdown-item>
-                <el-dropdown-item divided command="logout">
-                  <el-icon><SwitchButton /></el-icon>
-                  退出登录
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </div>
-    </header>
+    <AppTopbar />
 
     <main class="content">
       <section class="hero">
@@ -632,133 +565,6 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
     radial-gradient(circle at 8% 8%, rgba(99, 102, 241, 0.08), transparent 28rem),
     radial-gradient(circle at 92% 20%, rgba(37, 99, 235, 0.06), transparent 26rem),
     #f8fafc;
-}
-
-.topbar {
-  height: 64px;
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
-  position: sticky;
-  top: 0;
-  z-index: 20;
-}
-
-.nav-inner {
-  max-width: 1320px;
-  height: 100%;
-  margin: 0 auto;
-  padding: 0 28px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.brand {
-  border: 0;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #0f172a;
-  cursor: pointer;
-
-  .mark {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #2563eb 0%, #6366f1 100%);
-    color: #fff;
-    display: grid;
-    place-items: center;
-    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.24);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  strong {
-    font-size: 15px;
-    font-weight: 750;
-    letter-spacing: -0.02em;
-  }
-
-  &:hover .mark {
-    transform: translateY(-1px) rotate(-2deg);
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
-  }
-}
-
-.nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.nav-link {
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: #475569;
-  padding: 8px 12px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: color 0.2s ease, background-color 0.2s ease;
-
-  &:hover {
-    color: #0f172a;
-    background: rgba(241, 245, 249, 0.9);
-  }
-}
-
-.user-menu {
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: transparent;
-  padding: 4px 6px 4px 4px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #334155;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
-
-  &:hover {
-    border-color: #e2e8f0;
-    background: #fff;
-  }
-
-  .chevron {
-    color: #94a3b8;
-    font-size: 12px;
-  }
-}
-
-.avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  background: linear-gradient(135deg, #dbeafe, #e0e7ff);
-  color: #4338ca;
-  font-size: 13px;
-  font-weight: 700;
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-}
-
-.user-name {
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  font-weight: 600;
 }
 
 .content {
@@ -1375,16 +1181,6 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (max-width: 640px) {
-  .nav-inner {
-    padding: 0 16px;
-  }
-
-  .nav-link,
-  .user-name,
-  .chevron {
-    display: none;
-  }
-
   .content {
     padding: 24px 16px 48px;
   }

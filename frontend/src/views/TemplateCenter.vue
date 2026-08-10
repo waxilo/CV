@@ -4,9 +4,9 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useTemplateStore } from '/@/stores/template';
 import { useResumeStore } from '/@/stores/resume';
-import { useUserStore } from '/@/stores/user';
 import { createSampleResumeData } from '/@/features/template-renderer/sampleData';
 import { migrateTemplateConfig } from '/@/features/template-renderer';
+import AppTopbar from '/@/components/AppTopbar.vue';
 import PaperThumb from '/@/components/preview/PaperThumb.vue';
 import ResumeFullPreview from '/@/components/preview/ResumeFullPreview.vue';
 import type { ITemplate, ITemplateConfig } from '/@/types/template';
@@ -19,7 +19,6 @@ interface ITemplateCategory {
 const router = useRouter();
 const templateStore = useTemplateStore();
 const resumeStore = useResumeStore();
-const userStore = useUserStore();
 const sampleData = createSampleResumeData();
 const creating = ref(false);
 const activeCategory = ref('全部');
@@ -44,7 +43,6 @@ const categories: ITemplateCategory[] = [
   { label: '海外求职', keywords: ['海外', '英文', '国际'] },
 ];
 
-const userInitial = computed(() => userStore.displayName.trim().charAt(0).toUpperCase() || 'U');
 const filteredTemplates = computed(() => {
   const category = categories.find((item) => item.label === activeCategory.value);
   if (!category || category.label === '全部') return templateStore.list;
@@ -59,10 +57,6 @@ const filteredTemplates = computed(() => {
 onMounted(() => {
   templateStore.fetchList();
 });
-
-function goCreate() {
-  router.push({ name: 'TemplateCreate' });
-}
 
 function goEdit(tpl: ITemplate) {
   router.push(`/templates/${tpl.template_id}/edit`);
@@ -105,25 +99,6 @@ async function useTemplate(tpl: ITemplate) {
     }
   } finally {
     creating.value = false;
-  }
-}
-
-function goDashboard() {
-  router.push('/');
-}
-
-function handleUserCommand(command: string): void {
-  if (command === 'dashboard') {
-    goDashboard();
-    return;
-  }
-  if (command === 'mcp') {
-    router.push('/mcp');
-    return;
-  }
-  if (command === 'logout') {
-    userStore.logout();
-    router.replace('/login');
   }
 }
 
@@ -221,54 +196,7 @@ function toggleFavorite(tpl: ITemplate): void {
 
 <template>
   <div class="template-market">
-    <header class="topbar no-print">
-      <div class="nav-inner">
-        <button class="brand" type="button" aria-label="返回简历首页" @click="goDashboard">
-          <span class="mark">
-            <el-icon :size="18"><Document /></el-icon>
-          </span>
-          <strong>CV Builder</strong>
-        </button>
-
-        <div class="nav-actions">
-          <button class="nav-link" type="button" @click="goDashboard">我的简历</button>
-          <button class="nav-link" type="button" @click="router.push('/mcp')">MCP 接入</button>
-          <el-button class="create-template-button" @click="goCreate">
-            <el-icon><Plus /></el-icon>
-            创建模板
-          </el-button>
-          <el-dropdown trigger="click" placement="bottom-end" @command="handleUserCommand">
-            <button class="user-menu" type="button" aria-label="用户菜单">
-              <span class="avatar">
-                <img
-                  v-if="userStore.user?.avatar_url"
-                  :src="userStore.user.avatar_url"
-                  :alt="userStore.displayName"
-                />
-                <span v-else>{{ userInitial }}</span>
-              </span>
-              <el-icon class="chevron"><ArrowDown /></el-icon>
-            </button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="dashboard">
-                  <el-icon><House /></el-icon>
-                  我的简历
-                </el-dropdown-item>
-                <el-dropdown-item command="mcp">
-                  <el-icon><Connection /></el-icon>
-                  MCP 接入
-                </el-dropdown-item>
-                <el-dropdown-item divided command="logout">
-                  <el-icon><SwitchButton /></el-icon>
-                  退出登录
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </div>
-    </header>
+    <AppTopbar />
 
     <main class="content">
       <section class="page-heading">
@@ -468,138 +396,6 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
     radial-gradient(circle at 10% 6%, rgba(99, 102, 241, 0.07), transparent 28rem),
     radial-gradient(circle at 90% 18%, rgba(37, 99, 235, 0.06), transparent 26rem),
     #f8fafc;
-}
-
-.topbar {
-  height: 64px;
-  background: rgba(255, 255, 255, 0.78);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  position: sticky;
-  top: 0;
-  z-index: 20;
-}
-
-.nav-inner {
-  max-width: 1320px;
-  height: 100%;
-  margin: 0 auto;
-  padding: 0 28px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.brand {
-  border: 0;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #0f172a;
-  cursor: pointer;
-
-  .mark {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #2563eb, #6366f1);
-    color: #fff;
-    display: grid;
-    place-items: center;
-    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.24);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  strong {
-    font-size: 15px;
-    font-weight: 750;
-    letter-spacing: -0.02em;
-  }
-
-  &:hover .mark {
-    transform: translateY(-1px) rotate(-2deg);
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
-  }
-}
-
-.nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.nav-link {
-  padding: 8px 12px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: #475569;
-  font-size: 14px;
-  cursor: pointer;
-  transition: color 0.2s ease, background-color 0.2s ease;
-
-  &:hover {
-    color: #0f172a;
-    background: rgba(241, 245, 249, 0.9);
-  }
-}
-
-:deep(.create-template-button) {
-  height: 36px;
-  margin: 0;
-  border: 0;
-  border-radius: 9px;
-  color: #fff;
-  background: #0f172a;
-  font-weight: 600;
-
-  &:hover {
-    color: #fff;
-    background: #1e293b;
-    transform: translateY(-1px);
-  }
-}
-
-.user-menu {
-  padding: 3px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-
-  &:hover {
-    border-color: #e2e8f0;
-    background: #fff;
-  }
-
-  .chevron {
-    color: #94a3b8;
-    font-size: 11px;
-  }
-}
-
-.avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, #dbeafe, #e0e7ff);
-  color: #4338ca;
-  font-size: 13px;
-  font-weight: 700;
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
 }
 
 .content {
@@ -1063,23 +859,6 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (max-width: 720px) {
-  .nav-inner {
-    padding: 0 16px;
-  }
-
-  .nav-link {
-    display: none;
-  }
-
-  :deep(.create-template-button) {
-    width: 36px;
-    padding: 0;
-
-    span:not(.el-icon) {
-      display: none;
-    }
-  }
-
   .content {
     padding: 28px 16px 52px;
   }
