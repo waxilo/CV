@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { authRoutes } from './routes/auth';
+import { apiKeyRoutes } from './routes/apiKey';
 import { resumeRoutes } from './routes/resume';
 import { shareRoutes } from './routes/share';
 import { templateRoutes } from './routes/template';
@@ -33,6 +34,7 @@ app.get('/', (c) =>
 app.get('/health', (c) => c.json({ success: true, code: '0', message: 'ok' }));
 
 app.route('/api/auth-service/v1', authRoutes);
+app.route('/api/auth-service/v1', apiKeyRoutes);
 app.route('/api/share-service/v1', shareRoutes);
 app.route('/api/resume-service/v1', resumeRoutes);
 app.route('/api/template-service/v1', templateRoutes);

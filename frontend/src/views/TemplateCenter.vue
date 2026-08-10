@@ -114,6 +114,10 @@ function handleUserCommand(command: string): void {
     goDashboard();
     return;
   }
+  if (command === 'mcp') {
+    router.push('/mcp');
+    return;
+  }
   if (command === 'logout') {
     userStore.logout();
     router.replace('/login');
@@ -219,6 +223,7 @@ function toggleFavorite(tpl: ITemplate): void {
 
         <div class="nav-actions">
           <button class="nav-link" type="button" @click="goDashboard">我的简历</button>
+          <button class="nav-link" type="button" @click="router.push('/mcp')">MCP 接入</button>
           <el-button class="create-template-button" @click="goCreate">
             <el-icon><Plus /></el-icon>
             创建模板
@@ -240,6 +245,10 @@ function toggleFavorite(tpl: ITemplate): void {
                 <el-dropdown-item command="dashboard">
                   <el-icon><House /></el-icon>
                   我的简历
+                </el-dropdown-item>
+                <el-dropdown-item command="mcp">
+                  <el-icon><Connection /></el-icon>
+                  MCP 接入
                 </el-dropdown-item>
                 <el-dropdown-item divided command="logout">
                   <el-icon><SwitchButton /></el-icon>

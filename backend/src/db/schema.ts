@@ -68,9 +68,28 @@ export const templates = sqliteTable('template', {
   isDeleted: integer('is_deleted', { mode: 'boolean' }).notNull().default(false),
 });
 
+/** MCP / 外部工具 API Key；明文仅创建时返回一次 */
+export const apiKeys = sqliteTable('api_key', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  name: text('name').notNull(),
+  /** 列表展示前缀，如 cvk_xxxxxxxx… */
+  keyPrefix: text('key_prefix').notNull(),
+  /** SHA-256(明文) 十六进制 */
+  keyHash: text('key_hash').notNull(),
+  lastUsedAt: text('last_used_at'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  revokedAt: text('revoked_at'),
+  isRevoked: integer('is_revoked', { mode: 'boolean' }).notNull().default(false),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Resume = typeof resumes.$inferSelect;
 export type NewResume = typeof resumes.$inferInsert;
 export type Template = typeof templates.$inferSelect;
 export type NewTemplate = typeof templates.$inferInsert;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type NewApiKey = typeof apiKeys.$inferInsert;

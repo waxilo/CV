@@ -27,6 +27,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/mcp',
+    name: 'McpCenter',
+    component: () => import('/@/views/McpCenter.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/templates/new',
     name: 'TemplateCreate',
     component: () => import('/@/views/TemplateDesigner.vue'),

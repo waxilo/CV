@@ -1,0 +1,51 @@
+{
+  "name": "@waxilo/cv-mcp",
+  "version": "0.1.2",
+  "description": "MCP server for CV Builder — list/get/update resume JSON via AI tools",
+  "type": "module",
+  "bin": {
+    "cv-mcp": "bin/cv-mcp.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "bin",
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc && node ./scripts/postbuild.mjs",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "cv",
+    "resume",
+    "ai"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/waxilo/CV.git",
+    "directory": "mcp"
+  },
+  "homepage": "https://github.com/waxilo/CV/tree/main/mcp",
+  "bugs": {
+    "url": "https://github.com/waxilo/CV/issues"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}

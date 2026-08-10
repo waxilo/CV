@@ -91,6 +91,10 @@ function handleUserCommand(command: string) {
     router.push('/templates');
     return;
   }
+  if (command === 'mcp') {
+    router.push('/mcp');
+    return;
+  }
   if (command === 'logout') handleLogout();
 }
 
@@ -149,6 +153,9 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
           <button class="nav-link" type="button" @click="router.push('/templates')">
             模板中心
           </button>
+          <button class="nav-link" type="button" @click="router.push('/mcp')">
+            MCP 接入
+          </button>
           <el-dropdown trigger="click" placement="bottom-end" @command="handleUserCommand">
             <button class="user-menu" type="button">
               <span class="avatar">
@@ -167,6 +174,10 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
                 <el-dropdown-item command="templates">
                   <el-icon><Collection /></el-icon>
                   模板中心
+                </el-dropdown-item>
+                <el-dropdown-item command="mcp">
+                  <el-icon><Connection /></el-icon>
+                  MCP 接入
                 </el-dropdown-item>
                 <el-dropdown-item divided command="logout">
                   <el-icon><SwitchButton /></el-icon>
