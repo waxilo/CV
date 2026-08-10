@@ -346,10 +346,18 @@ watch(
   --reader-toolbar: rgba(255, 255, 255, 0.92);
 
   &.is-page {
+    /* 占满视口，由 .reader-stage 内部滚动；仅 min-height 会导致内容撑开且 body 无法滚动 */
+    height: 100%;
     min-height: 100%;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
     background: linear-gradient(180deg, #e8ebf0 0%, var(--reader-bg) 40%, var(--reader-bg-accent) 100%);
+
+    .reader-shell {
+      height: 100%;
+      min-height: 0;
+    }
 
     .reader-hint {
       display: none;

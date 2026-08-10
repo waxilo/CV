@@ -68,7 +68,11 @@ onMounted(async () => {
 
 <style scoped lang="scss">
 .share-page {
+  height: 100%;
   min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .empty {
