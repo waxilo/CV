@@ -8,7 +8,9 @@ import { useResumeStore } from '/@/stores/resume';
 import { useTemplateStore } from '/@/stores/template';
 import { migrateTemplateConfig } from '/@/features/template-renderer';
 import { createSampleResumeData } from '/@/features/template-renderer/sampleData';
+import { copyText } from '/@/utils/clipboard';
 import PaperThumb from '/@/components/preview/PaperThumb.vue';
+import ResumeFullPreview from '/@/components/preview/ResumeFullPreview.vue';
 import type { IResumeData, IResumeSummary } from '/@/types/resume';
 
 const router = useRouter();
@@ -23,15 +25,25 @@ const sampleResumeData = createSampleResumeData();
 const userInitial = computed(() => userStore.displayName.trim().charAt(0).toUpperCase() || 'U');
 
 const isPreviewVisible = ref(false);
+const isLargePreviewVisible = ref(false);
+const isShareVisible = ref(false);
 const previewResume = ref<IResumeSummary | null>(null);
 const previewPageIndex = ref(0);
 const previewPageCount = ref(1);
 const isTogglingLock = ref(false);
+const isTogglingShare = ref(false);
+const isRefreshingPreview = ref(false);
 let previewWheelLockedUntil = 0;
 
 const previewConfig = computed(() =>
   previewResume.value ? resumeThumbConfig(previewResume.value) : null
 );
+
+const previewShareUrl = computed(() => {
+  const token = previewResume.value?.share_token;
+  if (!token || typeof window === 'undefined') return '';
+  return `${window.location.origin}/s/${token}`;
+});
 
 onMounted(async () => {
   await Promise.all([resumeStore.fetchList(), templateStore.fetchList()]);
@@ -66,11 +78,42 @@ async function handleCreate() {
   }
 }
 
+function syncPreviewFromList(resumeId: string) {
+  const fresh = resumeStore.list.find((r) => r.resume_id === resumeId);
+  if (fresh && previewResume.value?.resume_id === resumeId) {
+    previewResume.value = { ...fresh };
+  }
+}
+
 function openPreview(item: IResumeSummary) {
   previewResume.value = item;
   previewPageIndex.value = 0;
   previewPageCount.value = 1;
+  isLargePreviewVisible.value = false;
+  isShareVisible.value = false;
   isPreviewVisible.value = true;
+}
+
+async function refreshPreviewResume(showMessage = true) {
+  if (!previewResume.value) return;
+  const resumeId = previewResume.value.resume_id;
+  if (isRefreshingPreview.value) return;
+  isRefreshingPreview.value = true;
+  try {
+    await resumeStore.fetchList();
+    syncPreviewFromList(resumeId);
+    if (showMessage) ElMessage.success('已获取最新简历');
+  } catch {
+    if (showMessage) ElMessage.error('刷新失败，请稍后重试');
+  } finally {
+    isRefreshingPreview.value = false;
+  }
+}
+
+async function openLargePreview() {
+  if (!previewResume.value) return;
+  await refreshPreviewResume(false);
+  isLargePreviewVisible.value = true;
 }
 
 function openEditor(id: string) {
@@ -80,6 +123,8 @@ function openEditor(id: string) {
     return;
   }
   isPreviewVisible.value = false;
+  isLargePreviewVisible.value = false;
+  isShareVisible.value = false;
   router.push(`/editor/${id}`);
 }
 
@@ -103,6 +148,8 @@ async function handleDelete(item: IResumeSummary) {
     await resumeStore.removeResume(item.resume_id);
     if (previewResume.value?.resume_id === item.resume_id) {
       isPreviewVisible.value = false;
+      isLargePreviewVisible.value = false;
+      isShareVisible.value = false;
       previewResume.value = null;
     }
     ElMessage.success('已删除');
@@ -127,18 +174,43 @@ async function handleToggleLock(item: IResumeSummary) {
   try {
     const next = !item.is_locked;
     await resumeStore.setResumeLocked(item.resume_id, next);
-    if (previewResume.value?.resume_id === item.resume_id) {
-      previewResume.value = {
-        ...previewResume.value,
-        is_locked: next,
-      };
-    }
+    syncPreviewFromList(item.resume_id);
     ElMessage.success(next ? '已锁定：不可编辑、删除或被 MCP 修改' : '已解锁');
   } catch {
     // 拦截器已提示
   } finally {
     isTogglingLock.value = false;
   }
+}
+
+function openShareDialog() {
+  if (!previewResume.value) return;
+  isShareVisible.value = true;
+}
+
+async function handleShareToggle(enabled: boolean) {
+  if (!previewResume.value || isTogglingShare.value) return;
+  if (previewResume.value.is_locked) {
+    ElMessage.warning('简历已锁定，无法修改分享状态');
+    return;
+  }
+  isTogglingShare.value = true;
+  try {
+    await resumeStore.setResumePublicShare(previewResume.value.resume_id, enabled);
+    syncPreviewFromList(previewResume.value.resume_id);
+    ElMessage.success(enabled ? '已开启在线分享' : '已关闭在线分享');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '分享设置失败';
+    ElMessage.error(message);
+  } finally {
+    isTogglingShare.value = false;
+  }
+}
+
+async function handleCopyShareLink() {
+  if (!previewShareUrl.value) return;
+  const ok = await copyText(previewShareUrl.value);
+  ElMessage[ok ? 'success' : 'error'](ok ? '链接已复制' : '复制失败，请手动选择链接');
 }
 
 function handlePreviewPageCount(count: number) {
@@ -347,7 +419,12 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
       <template v-if="previewResume">
         <div class="modal-preview">
           <div class="modal-preview-stage" @wheel="handlePreviewWheel">
-            <div class="modal-paper">
+            <button
+              class="modal-paper enlarge-trigger"
+              type="button"
+              aria-label="查看大图"
+              @click="openLargePreview"
+            >
               <PaperThumb
                 v-if="previewConfig"
                 :data="resumePreviewData(previewResume)"
@@ -358,7 +435,11 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
                 :page-index="previewPageIndex"
                 @page-count="handlePreviewPageCount"
               />
-            </div>
+              <span class="enlarge-hint">
+                <el-icon><ZoomIn /></el-icon>
+                查看大图
+              </span>
+            </button>
 
             <button
               v-if="previewPageIndex > 0"
@@ -423,6 +504,10 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
                 编辑简历
                 <el-icon><ArrowRight /></el-icon>
               </el-button>
+              <el-button @click="openShareDialog">
+                <el-icon><Share /></el-icon>
+                分享
+              </el-button>
               <el-button @click="handleCopy(previewResume)">复制</el-button>
               <el-button
                 :loading="isTogglingLock"
@@ -445,6 +530,55 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
               </el-button>
             </div>
           </aside>
+        </div>
+      </template>
+    </el-dialog>
+
+    <ResumeFullPreview
+      v-if="isLargePreviewVisible && previewResume && previewConfig"
+      :data="resumePreviewData(previewResume)"
+      :title="previewResume.title"
+      :config="previewConfig"
+      variant="overlay"
+      can-refresh
+      :is-refreshing="isRefreshingPreview"
+      @close="isLargePreviewVisible = false"
+      @refresh="refreshPreviewResume"
+    />
+
+    <el-dialog
+      v-model="isShareVisible"
+      title="在线分享"
+      width="480px"
+      class="share-dialog"
+      append-to-body
+      destroy-on-close
+    >
+      <template v-if="previewResume">
+        <div class="share-body">
+          <div class="share-row">
+            <div>
+              <p class="share-title">公开预览链接</p>
+              <p class="share-desc">
+                开启后生成预览链接；关闭后再开启会生成新链接，旧链接立即失效。内容保存后当前链接会自动更新。
+              </p>
+            </div>
+            <el-switch
+              :model-value="Boolean(previewResume.is_public)"
+              :loading="isTogglingShare"
+              :disabled="isTogglingShare || Boolean(previewResume.is_locked)"
+              @change="(val: string | number | boolean) => handleShareToggle(Boolean(val))"
+            />
+          </div>
+          <p v-if="previewResume.is_locked" class="share-tip warn">锁定中无法开关分享，可先解锁。</p>
+          <div v-if="previewResume.is_public && previewShareUrl" class="share-link-box">
+            <el-input :model-value="previewShareUrl" readonly>
+              <template #append>
+                <el-button @click="handleCopyShareLink">复制</el-button>
+              </template>
+            </el-input>
+            <p class="share-tip">关闭分享后原链接立即失效；再次开启会生成全新链接。</p>
+          </div>
         </div>
       </template>
     </el-dialog>
@@ -889,13 +1023,48 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
   width: 100%;
   aspect-ratio: 210 / 297;
   overflow: hidden;
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  display: block;
+  text-align: left;
+
+  &.enlarge-trigger {
+    &:hover .enlarge-hint,
+    &:focus-visible .enlarge-hint {
+      opacity: 1;
+    }
+  }
 
   :deep(.cv-paper) {
     width: 100%;
     height: 100%;
     border-radius: 0;
     box-shadow: none;
+    pointer-events: none;
   }
+}
+
+.enlarge-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 4;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 650;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
 }
 
 .page-nav {
@@ -1024,6 +1193,50 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
     width: 100%;
     height: 42px;
     margin-bottom: 4px;
+  }
+}
+
+.share-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.share-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.share-title {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.share-desc {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.share-link-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.share-tip {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.45;
+
+  &.warn {
+    color: #b45309;
   }
 }
 

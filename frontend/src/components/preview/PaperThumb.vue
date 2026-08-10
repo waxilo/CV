@@ -24,6 +24,8 @@ const props = withDefaults(
      * 分享页等场景避免手机捏合缩放触发 ResizeObserver 反复改 scale，造成「布局跟着变」。
      */
     freezeScale?: boolean;
+    /** stacked 模式下页间距（px） */
+    pageGap?: number;
   }>(),
   {
     fallbackScale: 0.26,
@@ -31,6 +33,7 @@ const props = withDefaults(
     pageLayout: 'vertical',
     pageIndex: 0,
     freezeScale: false,
+    pageGap: 16,
   }
 );
 
@@ -61,9 +64,13 @@ const scale = computed(() =>
   measuredWidth.value > 0 ? measuredWidth.value / A4_WIDTH_PX : props.fallbackScale
 );
 const paperStyle = computed(() => {
-  if (isStacked.value) return undefined;
+  if (isStacked.value) {
+    return {
+      gap: `${props.pageGap}px`,
+    };
+  }
   return {
-    aspectRatio: isFlip.value ? '210 / 297' : '210 / 297',
+    aspectRatio: '210 / 297',
   };
 });
 
@@ -176,16 +183,15 @@ onBeforeUnmount(() => {
     border-radius: 0;
     display: flex;
     flex-direction: column;
-    gap: 16px;
   }
 }
 
 .cv-page-slice {
   width: 100%;
   aspect-ratio: 210 / 297;
-  border-radius: 4px;
+  border-radius: 2px;
   background: #fff;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.08);
   overflow: hidden;
 }
 

@@ -159,15 +159,30 @@ export const useResumeStore = defineStore('resume', () => {
    */
   async function setPublicShare(enabled: boolean) {
     if (!currentId.value) return;
-    if (isLocked.value) {
+    return setResumePublicShare(currentId.value, enabled);
+  }
+
+  /** 按简历 ID 开关分享（首页预览 / 编辑页共用） */
+  async function setResumePublicShare(resumeId: string, enabled: boolean) {
+    const listItem = list.value.find((r) => r.resume_id === resumeId);
+    const locked = currentId.value === resumeId ? isLocked.value : Boolean(listItem?.is_locked);
+    if (locked) {
       throw new Error('简历已锁定，无法修改分享状态。');
     }
     const res = await updateResumeApi({
-      resume_id: currentId.value,
+      resume_id: resumeId,
       is_public: enabled,
     });
-    isPublic.value = enabled;
-    shareToken.value = enabled ? res.data?.share_token || null : null;
+    const nextToken = enabled ? res.data?.share_token || null : null;
+    if (currentId.value === resumeId) {
+      isPublic.value = enabled;
+      shareToken.value = nextToken;
+    }
+    if (listItem) {
+      listItem.is_public = enabled;
+      listItem.share_token = nextToken;
+    }
+    return { is_public: enabled, share_token: nextToken };
   }
 
   /** 锁定 / 解锁简历（锁定后禁止编辑与删除，含 MCP） */
@@ -415,6 +430,7 @@ export const useResumeStore = defineStore('resume', () => {
     loadResume,
     saveResume,
     setPublicShare,
+    setResumePublicShare,
     setResumeLocked,
     removeResume,
     duplicateResume,

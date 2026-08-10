@@ -8,6 +8,7 @@ import { useUserStore } from '/@/stores/user';
 import { createSampleResumeData } from '/@/features/template-renderer/sampleData';
 import { migrateTemplateConfig } from '/@/features/template-renderer';
 import PaperThumb from '/@/components/preview/PaperThumb.vue';
+import ResumeFullPreview from '/@/components/preview/ResumeFullPreview.vue';
 import type { ITemplate, ITemplateConfig } from '/@/types/template';
 
 interface ITemplateCategory {
@@ -25,6 +26,7 @@ const activeCategory = ref('全部');
 const previewTemplate = ref<ITemplate | null>(null);
 const previewConfig = ref<ITemplateConfig | null>(null);
 const isPreviewVisible = ref(false);
+const isLargePreviewVisible = ref(false);
 const previewPageIndex = ref(0);
 const previewPageCount = ref(1);
 let previewWheelLockedUntil = 0;
@@ -87,6 +89,7 @@ async function handleDelete(tpl: ITemplate) {
   }
   await templateStore.removeTemplate(tpl.template_id);
   isPreviewVisible.value = false;
+  isLargePreviewVisible.value = false;
   previewTemplate.value = null;
   previewConfig.value = null;
   ElMessage.success('已删除');
@@ -151,7 +154,13 @@ function openPreview(tpl: ITemplate): void {
   previewConfig.value = migrateTemplateConfig(tpl.config);
   previewPageIndex.value = 0;
   previewPageCount.value = 1;
+  isLargePreviewVisible.value = false;
   isPreviewVisible.value = true;
+}
+
+function openLargePreview(): void {
+  if (!previewTemplate.value || !previewConfig.value) return;
+  isLargePreviewVisible.value = true;
 }
 
 function handlePreviewPageCount(count: number): void {
@@ -321,7 +330,12 @@ function toggleFavorite(tpl: ITemplate): void {
       <template v-if="previewTemplate">
         <div class="modal-preview">
           <div class="modal-preview-stage" @wheel="handlePreviewWheel">
-            <div class="modal-paper">
+            <button
+              class="modal-paper enlarge-trigger"
+              type="button"
+              aria-label="查看大图"
+              @click="openLargePreview"
+            >
               <PaperThumb
                 v-if="previewConfig"
                 :data="sampleData"
@@ -332,7 +346,11 @@ function toggleFavorite(tpl: ITemplate): void {
                 :page-index="previewPageIndex"
                 @page-count="handlePreviewPageCount"
               />
-            </div>
+              <span class="enlarge-hint">
+                <el-icon><ZoomIn /></el-icon>
+                查看大图
+              </span>
+            </button>
 
             <button
               v-if="previewPageIndex > 0"
@@ -428,6 +446,15 @@ function toggleFavorite(tpl: ITemplate): void {
         </div>
       </template>
     </el-dialog>
+
+    <ResumeFullPreview
+      v-if="isLargePreviewVisible && previewTemplate && previewConfig"
+      :data="sampleData"
+      :title="previewTemplate.name"
+      :config="previewConfig"
+      variant="overlay"
+      @close="isLargePreviewVisible = false"
+    />
   </div>
 </template>
 
@@ -777,13 +804,48 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
   width: 100%;
   aspect-ratio: 210 / 297;
   overflow: hidden;
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  display: block;
+  text-align: left;
+
+  &.enlarge-trigger {
+    &:hover .enlarge-hint,
+    &:focus-visible .enlarge-hint {
+      opacity: 1;
+    }
+  }
 
   :deep(.cv-paper) {
     width: 100%;
     height: 100%;
     border-radius: 0;
     box-shadow: none;
+    pointer-events: none;
   }
+}
+
+.enlarge-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 4;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 650;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
 }
 
 .page-nav {
