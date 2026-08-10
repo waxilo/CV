@@ -389,6 +389,8 @@ watch(
 
     &.is-closing {
       opacity: 0;
+      /* 淡出期间禁止点击，避免穿透到底下「查看大图」又打开一次 */
+      pointer-events: none;
 
       .reader-shell {
         transform: translateY(8px) scale(0.99);

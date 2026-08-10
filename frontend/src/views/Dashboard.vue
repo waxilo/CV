@@ -94,6 +94,12 @@ function openPreview(item: IResumeSummary) {
   isPreviewVisible.value = true;
 }
 
+/** 弹窗关闭后 Element Plus 会把焦点还给触发卡片，去掉残留描边 */
+function blurActiveElement() {
+  const el = document.activeElement;
+  if (el instanceof HTMLElement) el.blur();
+}
+
 async function refreshPreviewResume(showMessage = true) {
   if (!previewResume.value) return;
   const resumeId = previewResume.value.resume_id;
@@ -110,10 +116,11 @@ async function refreshPreviewResume(showMessage = true) {
   }
 }
 
-async function openLargePreview() {
-  if (!previewResume.value) return;
-  await refreshPreviewResume(false);
+function openLargePreview() {
+  if (!previewResume.value || isLargePreviewVisible.value) return;
+  // 先打开再后台刷新，避免 await 接口时第一下无反馈、连点叠出多次
   isLargePreviewVisible.value = true;
+  void refreshPreviewResume(false);
 }
 
 function openEditor(id: string) {
@@ -393,16 +400,10 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
                 <el-icon><Lock /></el-icon>
                 已锁定
               </span>
+              <div class="thumb-caption">
+                <h3>{{ item.title }}</h3>
+              </div>
             </PaperThumb>
-
-            <div class="card-meta">
-              <h3>{{ item.title }}</h3>
-              <p class="meta-line">
-                <span>{{ templateName(item.template_id) }}</span>
-                <span class="dot" aria-hidden="true">·</span>
-                <span>更新于 {{ formatDate(item.updated_at) }}</span>
-              </p>
-            </div>
           </article>
         </div>
       </section>
@@ -415,6 +416,7 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
       :show-close="false"
       align-center
       destroy-on-close
+      @closed="blurActiveElement"
     >
       <template v-if="previewResume">
         <div class="modal-preview">
@@ -423,7 +425,7 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
               class="modal-paper enlarge-trigger"
               type="button"
               aria-label="查看大图"
-              @click="openLargePreview"
+              @click.stop="openLargePreview"
             >
               <PaperThumb
                 v-if="previewConfig"
@@ -949,15 +951,16 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
 /* 简历卡：没有外层容器，A4 纸张本身就是卡片 */
 .resume-card {
   min-width: 0;
+  outline: none;
   cursor: pointer;
   perspective: 1400px;
   animation: card-enter 0.5s both;
   animation-delay: calc(var(--card-index, 0) * 60ms);
 }
 
-/* 抬起纸张：位移 + 极轻微的 X 轴翻转，底边向上离开桌面 */
+/* 抬起纸张：位移 + 极轻微的 X 轴翻转；仅键盘 focus-visible，避免关弹窗后残留描边态 */
 .resume-card:hover .cv-paper,
-.resume-card:focus-within .cv-paper {
+.resume-card:focus-visible .cv-paper {
   transform: translateY(-8px) rotateX(2deg);
   box-shadow:
     0 26px 50px rgba(15, 23, 42, 0.16),
@@ -979,6 +982,30 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
   font-size: 11px;
   font-weight: 650;
   pointer-events: none;
+}
+
+/* 简历名叠在 A4 纸张底部，渐变遮罩保证浅色模板上可读 */
+.thumb-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  padding: 28px 12px 12px;
+  background: linear-gradient(to top, rgba(15, 23, 42, 0.72) 0%, rgba(15, 23, 42, 0.28) 55%, transparent 100%);
+  pointer-events: none;
+
+  h3 {
+    overflow: hidden;
+    margin: 0;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(15, 23, 42, 0.35);
+  }
 }
 
 :deep(.preview-dialog) {
@@ -1250,41 +1277,6 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 
-.card-meta {
-  min-width: 0;
-  padding: 14px 2px 0;
-
-  h3 {
-    overflow: hidden;
-    color: #0f172a;
-    font-size: 14px;
-    font-weight: 650;
-    line-height: 1.4;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .meta-line {
-    margin-top: 4px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    overflow: hidden;
-    color: #94a3b8;
-    font-size: 12px;
-    white-space: nowrap;
-
-    > span:first-child {
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-  }
-
-  .dot {
-    color: #cbd5e1;
-  }
-}
-
 .tpl-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1436,7 +1428,7 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .resume-card:hover .cv-paper,
-  .resume-card:focus-within .cv-paper {
+  .resume-card:focus-visible .cv-paper {
     transform: none;
   }
 
