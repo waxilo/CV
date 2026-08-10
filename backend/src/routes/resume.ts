@@ -37,6 +37,11 @@ const idSchema = z.object({
   resume_id: z.string().uuid(),
 });
 
+const cloneSchema = z.object({
+  resume_id: z.string().uuid(),
+  title: z.string().min(1).max(100).optional(),
+});
+
 export const resumeRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
 resumeRoutes.use('*', authMiddleware);
@@ -322,10 +327,14 @@ resumeRoutes.post('/update-resume', async (c) => {
 /** POST /api/resume-service/v1/clone-resume */
 resumeRoutes.post('/clone-resume', async (c) => {
   const body = await c.req.json();
-  const parsed = idSchema.safeParse(body);
+  const parsed = cloneSchema.safeParse(body);
   if (!parsed.success) {
     return c.json(
-      { success: false, code: 'COMMON_PARAM_invalidRequest', message: 'resume_id 无效' },
+      {
+        success: false,
+        code: 'COMMON_PARAM_invalidRequest',
+        message: parsed.error.errors[0]?.message || 'resume_id 无效',
+      },
       400
     );
   }
@@ -354,7 +363,7 @@ resumeRoutes.post('/clone-resume', async (c) => {
   }
 
   const id = generateId();
-  const title = `${source.title} 副本`;
+  const title = parsed.data.title?.trim() || `${source.title} 副本`;
   const slug = `resume-${id.slice(0, 8)}`;
   // 整份 data 深拷贝：基本信息、各模块条目、主题/字体/页边距/模板变量一并带上
   const cloned = JSON.parse(JSON.stringify(source.data ?? createDefaultResumeData())) as IResumeData;
@@ -382,6 +391,8 @@ resumeRoutes.post('/clone-resume', async (c) => {
       title,
       slug,
       template_id: source.templateId,
+      is_locked: false,
+      source_resume_id: source.id,
     },
   });
 });

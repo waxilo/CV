@@ -26,7 +26,7 @@ npx clear-npx-cache
 # 然后在 Cursor Settings → MCP 重启 cv-builder
 ```
 
-密钥未吊销则无需重建。锁定简历的改写会被 API 拒绝（`RESUME_LOCKED`），需在网页解锁。
+密钥未吊销则无需重建。改简历请默认 `duplicate_resume` 后再 `update_*`。锁定原件的直接改写会被 API 拒绝（`RESUME_LOCKED`），可先复制再改副本。
 
 手动配置示例：
 
@@ -49,12 +49,15 @@ npx clear-npx-cache
 
 | Tool | 作用 |
 |------|------|
-| `list_resumes` | 列出简历摘要 |
+| `list_resumes` | 列出简历摘要（含 `is_locked`） |
 | `get_resume` | 拉取完整 JSON |
+| `duplicate_resume` | **推荐**：深拷贝副本（可自定义标题），再改副本，避免动原件 |
 | `update_resume` | 整份 data 写回 |
 | `update_basics` | 合并更新 basics |
 | `update_section` | 按 id/type 合并更新某一模块 |
 | `validate_resume_data` | 校验结构 |
+
+推荐流程：`list_resumes` → `duplicate_resume` → `get_resume(副本)` → `update_*`。锁定原件也可复制；副本默认未锁定。
 
 ## 本地开发（维护者）
 

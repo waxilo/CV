@@ -41,10 +41,23 @@ export function deleteResumeApi(resumeId: string): Promise<IApiResponse<void>> {
 }
 
 export function cloneResumeApi(
-  resumeId: string
-): Promise<IApiResponse<{ resume_id: string; title: string; slug: string; template_id: string }>> {
+  resumeId: string,
+  title?: string
+): Promise<
+  IApiResponse<{
+    resume_id: string;
+    title: string;
+    slug: string;
+    template_id: string;
+    is_locked?: boolean;
+    source_resume_id?: string;
+  }>
+> {
   return request
-    .post('/api/resume-service/v1/clone-resume', { resume_id: resumeId })
+    .post('/api/resume-service/v1/clone-resume', {
+      resume_id: resumeId,
+      ...(title ? { title } : {}),
+    })
     .then((r) => r.data);
 }
 

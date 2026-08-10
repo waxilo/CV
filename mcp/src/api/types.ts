@@ -66,6 +66,7 @@ export interface IResumeSummary {
   slug: string;
   template_id: string;
   is_public: boolean;
+  is_locked?: boolean;
   share_token?: string | null;
   data: IResumeData;
   updated_at: string;

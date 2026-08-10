@@ -51,6 +51,7 @@ const installPrompt = computed(() => {
 
 4. 若客户端使用 mcp.json / Claude Desktop 的 claude_desktop_config.json / Cursor 的 MCP 设置，请写入对应文件并保存。
 5. 配置完成后提示我刷新或重启 MCP；可用工具 list_resumes 验证是否连通。
+6. 之后改简历请默认先 duplicate_resume 再改副本，不要直接改原件。
 
 【注意】
 - CV_API_TOKEN 是我的私密密钥，不要提交到 git，不要发到公开场合。
@@ -86,10 +87,11 @@ const updatePrompt = computed(() => {
    - npx clear-npx-cache
    - 或 npm cache clean --force
 3. 保存 MCP 配置后，提示我刷新 / 重启 MCP（Cursor：Settings → MCP 开关或 Reload）。
-4. 用 list_resumes 验证连通；若返回 RESUME_LOCKED，说明该简历已锁定，需我在网页解锁后再改。
+4. 用 list_resumes 验证连通；若返回 RESUME_LOCKED，说明该简历已锁定，需我在网页解锁后再改原件，或先 duplicate_resume 再改副本。
 ${tokenLine}
 
-【注意】
+【改简历约定】
+- 默认先 duplicate_resume 再 update_* 副本，不要直接改正式原件（除非我明确要求）。
 - 不要改成其他包名或本地仓库 / tsx 路径。
 - 不要把 CV_API_TOKEN 提交到 git 或发到公开场合。
 - 只更新 MCP 相关配置与缓存，不要改我的业务代码（除非我另行要求）。`;
@@ -324,7 +326,8 @@ onMounted(() => {
         <li>创建 API Key 后点「一键复制安装提示词」</li>
         <li>粘贴到 Agent，等它写好全局 MCP</li>
         <li>在对话里说「列出我的简历」验证连通</li>
-        <li>回到「我的简历」打开对应简历即可看到 AI 的修改</li>
+        <li>改简历时请让 Agent「先复制再改副本」，避免直接改原件</li>
+        <li>回到「我的简历」打开副本即可看到 AI 的修改</li>
         <li>包有更新时：复制「更新提示词」贴给 Agent，清缓存并重启 MCP</li>
       </ol>
     </section>

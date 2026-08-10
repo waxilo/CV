@@ -54,6 +54,34 @@ export class CvApiClient {
     return res.data;
   }
 
+  /**
+   * 深拷贝一份简历；副本默认未锁定，适合 MCP 先复制再改，避免动原件。
+   */
+  async cloneResume(input: {
+    resume_id: string;
+    title?: string;
+  }): Promise<{
+    resume_id: string;
+    title: string;
+    slug: string;
+    template_id: string;
+    is_locked?: boolean;
+    source_resume_id?: string;
+  }> {
+    const res = await this.post<{
+      resume_id: string;
+      title: string;
+      slug: string;
+      template_id: string;
+      is_locked?: boolean;
+      source_resume_id?: string;
+    }>('/api/resume-service/v1/clone-resume', input);
+    if (!res.data) {
+      throw new CvApiError('复制响应为空', 502, 'CLONE_EMPTY');
+    }
+    return res.data;
+  }
+
   private async post<T>(path: string, body: unknown): Promise<IApiResponse<T>> {
     const url = `${this.config.apiBase}${path}`;
     let response: Response;

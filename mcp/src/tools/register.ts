@@ -16,7 +16,7 @@ const resumeIdSchema = z.string().uuid().describe('简历 ID（UUID）');
 export function registerTools(server: McpServer, api: CvApiClient): void {
   server.tool(
     'list_resumes',
-    '列出当前账号下的所有简历（摘要：id、标题、模板、更新时间；不含完整正文）。改简历前先调用此工具拿到 resume_id。',
+    '列出当前账号下的所有简历（摘要：id、标题、模板、是否锁定、更新时间；不含完整正文）。改简历前先调用此工具拿到 resume_id。若原件已锁定或希望降低风险，请先 duplicate_resume 再改副本。',
     {},
     async () => {
       try {
@@ -27,6 +27,7 @@ export function registerTools(server: McpServer, api: CvApiClient): void {
           slug: item.slug,
           template_id: item.template_id,
           is_public: item.is_public,
+          is_locked: Boolean(item.is_locked),
           name: item.data?.basics?.name ?? '',
           headline: item.data?.basics?.headline ?? '',
           updated_at: item.updated_at,
@@ -40,7 +41,7 @@ export function registerTools(server: McpServer, api: CvApiClient): void {
 
   server.tool(
     'get_resume',
-    '按 resume_id 拉取完整简历 JSON（basics / sections / metadata）。修改前必须先读取最新数据。',
+    '按 resume_id 拉取完整简历 JSON（basics / sections / metadata）。修改前必须先读取最新数据。若 is_locked=true，只能先 duplicate_resume 再改副本。',
     { resume_id: resumeIdSchema },
     async ({ resume_id }) => {
       try {
@@ -51,6 +52,7 @@ export function registerTools(server: McpServer, api: CvApiClient): void {
           slug: detail.slug,
           template_id: detail.template_id,
           is_public: detail.is_public,
+          is_locked: Boolean(detail.is_locked),
           updated_at: detail.updated_at,
           data: detail.data,
         });
@@ -61,8 +63,35 @@ export function registerTools(server: McpServer, api: CvApiClient): void {
   );
 
   server.tool(
+    'duplicate_resume',
+    '【推荐】深拷贝一份简历再改，避免直接改原件。锁定中的原件也可复制；副本默认未锁定。返回新 resume_id，后续 update_* 请只用新 ID。',
+    {
+      resume_id: resumeIdSchema.describe('要复制的源简历 ID'),
+      title: z
+        .string()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe('可选：副本标题；默认「原标题 副本」'),
+    },
+    async ({ resume_id, title }) => {
+      try {
+        const cloned = await api.cloneResume({ resume_id, title });
+        return textResult({
+          ok: true,
+          message:
+            '已创建副本。请用返回的 resume_id 继续 get_resume / update_*；不要再写回 source_resume_id。',
+          ...cloned,
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    }
+  );
+
+  server.tool(
     'update_resume',
-    '用完整 IResumeData 覆盖写回简历。必须保留 basics、sections、metadata（含 templateId 与 theme）。适合大范围改写后一次性保存。',
+    '用完整 IResumeData 覆盖写回简历。必须保留 basics、sections、metadata（含 templateId 与 theme）。适合大范围改写后一次性保存。建议先 duplicate_resume，再对本工具传入副本 resume_id。',
     {
       resume_id: resumeIdSchema,
       data: z
@@ -91,7 +120,7 @@ export function registerTools(server: McpServer, api: CvApiClient): void {
 
   server.tool(
     'update_basics',
-    '仅更新 basics 中给出的字段（合并写入，未传字段保持原值）。例如改 headline、联系方式、工作年限。',
+    '仅更新 basics 中给出的字段（合并写入，未传字段保持原值）。例如改 headline、联系方式、工作年限。建议先 duplicate_resume 再改副本。',
     {
       resume_id: resumeIdSchema,
       basics: z
@@ -119,7 +148,7 @@ export function registerTools(server: McpServer, api: CvApiClient): void {
 
   server.tool(
     'update_section',
-    '按 section id 或 type 替换/合并某一模块。传入 section 对象时以传入字段为准合并；传入 items/content 可改条目与富文本。',
+    '按 section id 或 type 替换/合并某一模块。传入 section 对象时以传入字段为准合并；传入 items/content 可改条目与富文本。建议先 duplicate_resume 再改副本。',
     {
       resume_id: resumeIdSchema,
       section_id: z.string().optional().describe('模块 id（优先）'),

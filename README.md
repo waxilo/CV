@@ -38,7 +38,7 @@ CV/
 - 隔离渲染预览（`sandbox=""` iframe + CSP，零脚本）
 - 浏览器打印导出 PDF；导出 HTML（内嵌结构化数据，可再导入）
 - 在线分享预览链接
-- **MCP 接入**：创建 API Key；一键复制**安装** / **更新**提示词，由 AI Agent 安装或升级全局 MCP 并改简历
+- **MCP 接入**：创建 API Key；一键复制**安装** / **更新**提示词；Agent 可通过 MCP 读写简历（推荐先 `duplicate_resume` 再改副本）
 - 网页部署（Cloudflare Pages）与桌面打包（Tauri）
 
 ## 快速开始
@@ -118,7 +118,9 @@ npm publish --access public   # 需 npm 登录且具备 publish 权限
 4. Agent 写入全局 MCP（`npx -y @waxilo/cv-mcp`）后即可 `list_resumes` / 改简历
 5. 包有更新时：同一页 **一键复制更新提示词**，让 Agent 清 npx 缓存、拉最新包并重启 MCP
 
-锁定中的简历：MCP 可 `list` / `get`，但 `update_*` 会收到 `RESUME_LOCKED`；请在首页预览弹窗解锁后再改。
+推荐改简历流程：`list_resumes` → **`duplicate_resume`**（得到副本）→ 再 `update_*` 只改副本，降低覆盖原件的风险。锁定简历也可复制；副本默认未锁定。
+
+锁定中的简历：MCP 可 `list` / `get` / `duplicate`，但直接 `update_*` 原件会收到 `RESUME_LOCKED`；请在首页预览弹窗解锁，或先复制再改副本。
 
 ### 更新已安装的 MCP
 
