@@ -38,7 +38,7 @@ CV/
 - 隔离渲染预览（`sandbox=""` iframe + CSP，零脚本）
 - 浏览器打印导出 PDF；导出 HTML（内嵌结构化数据，可再导入）
 - 在线分享预览链接
-- **MCP 接入**：创建 API Key，一键复制安装提示词，由 AI Agent 安装全局 MCP 并改简历
+- **MCP 接入**：创建 API Key；一键复制**安装** / **更新**提示词，由 AI Agent 安装或升级全局 MCP 并改简历
 - 网页部署（Cloudflare Pages）与桌面打包（Tauri）
 
 ## 快速开始
@@ -116,8 +116,24 @@ npm publish --access public   # 需 npm 登录且具备 publish 权限
 2. 创建 API Key（明文仅显示一次）
 3. **一键复制安装提示词**，粘贴到 Cursor / Claude 等 Agent
 4. Agent 写入全局 MCP（`npx -y @waxilo/cv-mcp`）后即可 `list_resumes` / 改简历
+5. 包有更新时：同一页 **一键复制更新提示词**，让 Agent 清 npx 缓存、拉最新包并重启 MCP
 
 锁定中的简历：MCP 可 `list` / `get`，但 `update_*` 会收到 `RESUME_LOCKED`；请在首页预览弹窗解锁后再改。
+
+### 更新已安装的 MCP
+
+已通过 `npx -y @waxilo/cv-mcp` 接入时，一般**不必改配置**，只需拉最新包：
+
+1. 打开 [MCP 接入](https://cv.sloan.dpdns.org/mcp) → **一键复制更新提示词** → 粘贴给 Agent  
+   或手动执行：
+   ```bash
+   npx clear-npx-cache
+   # 或 npm cache clean --force
+   ```
+2. 在 Cursor：**Settings → MCP** 关闭再打开 `cv-builder`，或 Reload MCP
+3. 用 `list_resumes` 验证；密钥未吊销则无需重建 API Key
+
+也可把 args 钉死版本（发新版后改号再重启）：`"args": ["-y", "@waxilo/cv-mcp@0.1.2"]`。
 
 手动配置示例：
 

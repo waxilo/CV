@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * MCP 接入面板：管理 API Key，一键复制「给 Agent 安装全局 MCP」的提示词。
+ * MCP 接入面板：管理 API Key，一键复制「安装 / 更新全局 MCP」的 AI 提示词。
  */
 import { computed, onMounted, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -56,6 +56,43 @@ const installPrompt = computed(() => {
 - CV_API_TOKEN 是我的私密密钥，不要提交到 git，不要发到公开场合。
 - 不要改成其他包名或本地 tsx 路径。
 - 只改 MCP 配置，不要改我的业务代码（除非我另行要求）。`;
+});
+
+/** 已装过 MCP 时，贴给 Agent 拉取最新包并重启 */
+const updatePrompt = computed(() => {
+  const tokenLine = freshlyCreated.value?.api_key
+    ? `- 若需轮换密钥，将 env.CV_API_TOKEN 更新为：${freshlyCreated.value.api_key}`
+    : '- 保留现有 env.CV_API_TOKEN（除非我另行提供新 Key）；不要删除或清空密钥。';
+
+  return `请帮我把当前 AI 客户端里已安装的 CV Builder MCP（cv-builder / @waxilo/cv-mcp）更新到最新版本。
+
+【必须完成】
+1. 确认全局 MCP 仍通过 npx 启动，推荐配置：
+
+{
+  "mcpServers": {
+    "cv-builder": {
+      "command": "npx",
+      "args": ["-y", "@waxilo/cv-mcp"],
+      "env": {
+        "CV_API_BASE": "${apiBase.value}",
+        "CV_API_TOKEN": "（保留我现有的密钥，不要改成占位符）"
+      }
+    }
+  }
+}
+
+2. 清理 npx 缓存并拉最新包（任选可用方式执行）：
+   - npx clear-npx-cache
+   - 或 npm cache clean --force
+3. 保存 MCP 配置后，提示我刷新 / 重启 MCP（Cursor：Settings → MCP 开关或 Reload）。
+4. 用 list_resumes 验证连通；若返回 RESUME_LOCKED，说明该简历已锁定，需我在网页解锁后再改。
+${tokenLine}
+
+【注意】
+- 不要改成其他包名或本地仓库 / tsx 路径。
+- 不要把 CV_API_TOKEN 提交到 git 或发到公开场合。
+- 只更新 MCP 相关配置与缓存，不要改我的业务代码（除非我另行要求）。`;
 });
 
 const mcpConfigJson = computed(() => {
@@ -146,6 +183,10 @@ async function handleCopyInstallPrompt() {
   await handleCopy(installPrompt.value, '安装提示词');
 }
 
+async function handleCopyUpdatePrompt() {
+  await handleCopy(updatePrompt.value, '更新提示词');
+}
+
 function formatTime(value: string | null | undefined): string {
   if (!value) return '—';
   const date = new Date(value);
@@ -163,8 +204,8 @@ onMounted(() => {
     <section class="block">
       <h3>用 AI 改简历</h3>
       <p class="desc">
-        创建 API Key → 一键复制安装提示词 → 粘贴到 Cursor / Claude 等 Agent。Agent
-        会帮你装好全局 MCP（npm 包 <code>@waxilo/cv-mcp</code>），之后即可直接改简历。
+        创建 API Key → 复制安装提示词给 Agent 装全局 MCP；已装过则复制更新提示词拉最新
+        <code>@waxilo/cv-mcp</code>。之后即可直接改简历。
       </p>
     </section>
 
@@ -244,6 +285,25 @@ onMounted(() => {
 
     <section class="block">
       <div class="block-head">
+        <h3>3. 一键复制更新提示词</h3>
+      </div>
+      <p class="desc">
+        已装过 MCP、只需拉最新 <code>@waxilo/cv-mcp</code> 时用这个。不强制新建
+        Key；若本页刚创建了密钥，提示词会附带轮换说明。
+      </p>
+
+      <div class="prompt-actions">
+        <el-button type="primary" plain size="large" @click="handleCopyUpdatePrompt">
+          一键复制更新提示词
+        </el-button>
+        <span class="hint ok">清缓存 → 拉最新包 → 重启 MCP</span>
+      </div>
+
+      <pre class="config prompt">{{ updatePrompt }}</pre>
+    </section>
+
+    <section class="block">
+      <div class="block-head">
         <h3>可选：手动 MCP JSON</h3>
         <el-button
           link
@@ -265,6 +325,7 @@ onMounted(() => {
         <li>粘贴到 Agent，等它写好全局 MCP</li>
         <li>在对话里说「列出我的简历」验证连通</li>
         <li>回到「我的简历」打开对应简历即可看到 AI 的修改</li>
+        <li>包有更新时：复制「更新提示词」贴给 Agent，清缓存并重启 MCP</li>
       </ol>
     </section>
   </div>

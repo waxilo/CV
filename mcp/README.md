@@ -15,6 +15,18 @@ CV Builder 的 MCP Server：在 Cursor / Claude Desktop 里用工具读写简历
 2. 创建 API Key
 3. **一键复制安装提示词**，粘贴到 Cursor / Claude 等 Agent
 4. Agent 会写入全局 MCP（`npx -y @waxilo/cv-mcp`）
+5. 已安装、只需升级时：同一页 **一键复制更新提示词**（清 npx 缓存 → 拉最新包 → 重启 MCP）
+
+## 更新 MCP
+
+配置仍是 `npx -y @waxilo/cv-mcp` 时，优先用网页上的**更新提示词**；或手动：
+
+```bash
+npx clear-npx-cache
+# 然后在 Cursor Settings → MCP 重启 cv-builder
+```
+
+密钥未吊销则无需重建。锁定简历的改写会被 API 拒绝（`RESUME_LOCKED`），需在网页解锁。
 
 手动配置示例：
 
