@@ -24,6 +24,7 @@ const updateSchema = z.object({
   data: z.record(z.unknown()).optional(),
   template_id: z.string().optional(),
   is_public: z.boolean().optional(),
+  is_locked: z.boolean().optional(),
   slug: z
     .string()
     .min(1)
@@ -143,6 +144,7 @@ resumeRoutes.post('/list-resumes', async (c) => {
       slug: resumes.slug,
       templateId: resumes.templateId,
       isPublic: resumes.isPublic,
+      isLocked: resumes.isLocked,
       data: resumes.data,
       updatedAt: resumes.updatedAt,
       createdAt: resumes.createdAt,
@@ -161,6 +163,7 @@ resumeRoutes.post('/list-resumes', async (c) => {
       slug: r.slug,
       template_id: r.templateId,
       is_public: r.isPublic,
+      is_locked: r.isLocked,
       data: r.data,
       updated_at: r.updatedAt,
       created_at: r.createdAt,
@@ -212,6 +215,7 @@ resumeRoutes.post('/get-detail', async (c) => {
       slug: resume.slug,
       template_id: resume.templateId,
       is_public: resume.isPublic,
+      is_locked: resume.isLocked,
       share_token: resume.shareToken ?? null,
       data: resume.data as IResumeData,
       updated_at: resume.updatedAt,
@@ -233,7 +237,7 @@ resumeRoutes.post('/update-resume', async (c) => {
 
   const user = c.get('user');
   const db = createDb(c.env.DB);
-  const { resume_id, title, data, template_id, is_public, slug } = parsed.data;
+  const { resume_id, title, data, template_id, is_public, is_locked, slug } = parsed.data;
 
   const rows = await db
     .select()
@@ -247,6 +251,26 @@ resumeRoutes.post('/update-resume', async (c) => {
     return c.json(
       { success: false, code: 'RESUME_NOT_FOUND', message: '简历不存在' },
       404
+    );
+  }
+
+  const current = rows[0];
+  const wantsContentChange =
+    title !== undefined ||
+    data !== undefined ||
+    template_id !== undefined ||
+    is_public !== undefined ||
+    slug !== undefined;
+
+  // 锁定后仅允许切换 is_locked（解锁），禁止改内容 / 分享 / 删除
+  if (current.isLocked && wantsContentChange) {
+    return c.json(
+      {
+        success: false,
+        code: 'RESUME_LOCKED',
+        message: '简历已锁定，无法修改。请先解锁后再编辑。',
+      },
+      403
     );
   }
 
@@ -274,12 +298,13 @@ resumeRoutes.post('/update-resume', async (c) => {
       patch.shareToken = null;
     }
   }
+  if (is_locked !== undefined) patch.isLocked = is_locked;
   if (slug !== undefined) patch.slug = slug;
 
   await db.update(resumes).set(patch).where(eq(resumes.id, resume_id));
 
   const nextShareToken =
-    patch.shareToken !== undefined ? patch.shareToken : rows[0].shareToken;
+    patch.shareToken !== undefined ? patch.shareToken : current.shareToken;
 
   return c.json({
     success: true,
@@ -287,7 +312,8 @@ resumeRoutes.post('/update-resume', async (c) => {
     message: '更新成功',
     data: {
       resume_id,
-      is_public: patch.isPublic !== undefined ? patch.isPublic : rows[0].isPublic,
+      is_public: patch.isPublic !== undefined ? patch.isPublic : current.isPublic,
+      is_locked: patch.isLocked !== undefined ? patch.isLocked : current.isLocked,
       share_token: nextShareToken ?? null,
     },
   });
@@ -344,6 +370,7 @@ resumeRoutes.post('/clone-resume', async (c) => {
     slug,
     data: cloned,
     templateId: source.templateId,
+    isLocked: false,
   });
 
   return c.json({
@@ -389,6 +416,17 @@ resumeRoutes.post('/delete-resume', async (c) => {
     return c.json(
       { success: false, code: 'RESUME_NOT_FOUND', message: '简历不存在' },
       404
+    );
+  }
+
+  if (rows[0].isLocked) {
+    return c.json(
+      {
+        success: false,
+        code: 'RESUME_LOCKED',
+        message: '简历已锁定，无法删除。请先解锁。',
+      },
+      403
     );
   }
 

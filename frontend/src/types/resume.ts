@@ -169,6 +169,8 @@ export interface IResumeSummary {
   slug: string;
   template_id: string;
   is_public: boolean;
+  /** 锁定后禁止编辑/删除（含 MCP），仅允许复制 */
+  is_locked?: boolean;
   share_token?: string | null;
   /** 列表接口也返回，用于卡片缩略图预览 */
   data: IResumeData;

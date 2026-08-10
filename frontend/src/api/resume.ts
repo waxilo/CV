@@ -23,8 +23,16 @@ export function updateResumeApi(data: {
   data?: IResumeData;
   template_id?: string;
   is_public?: boolean;
+  is_locked?: boolean;
   slug?: string;
-}): Promise<IApiResponse<{ resume_id: string; is_public?: boolean; share_token?: string | null }>> {
+}): Promise<
+  IApiResponse<{
+    resume_id: string;
+    is_public?: boolean;
+    is_locked?: boolean;
+    share_token?: string | null;
+  }>
+> {
   return request.post('/api/resume-service/v1/update-resume', data).then((r) => r.data);
 }
 

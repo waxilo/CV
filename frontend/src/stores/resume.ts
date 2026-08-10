@@ -84,6 +84,7 @@ export const useResumeStore = defineStore('resume', () => {
   const title = ref('未命名简历');
   const data = ref<IResumeData | null>(null);
   const isPublic = ref(false);
+  const isLocked = ref(false);
   const shareToken = ref<string | null>(null);
   const isLoading = ref(false);
   const isSaving = ref(false);
@@ -124,6 +125,7 @@ export const useResumeStore = defineStore('resume', () => {
         title.value = res.data.title;
         data.value = res.data.data;
         isPublic.value = Boolean(res.data.is_public);
+        isLocked.value = Boolean(res.data.is_locked);
         shareToken.value = res.data.share_token || null;
         isDirty.value = false;
       }
@@ -134,6 +136,9 @@ export const useResumeStore = defineStore('resume', () => {
 
   async function saveResume() {
     if (!currentId.value || !data.value) return;
+    if (isLocked.value) {
+      throw new Error('简历已锁定，无法保存。请先解锁。');
+    }
     isSaving.value = true;
     try {
       await updateResumeApi({
@@ -154,12 +159,30 @@ export const useResumeStore = defineStore('resume', () => {
    */
   async function setPublicShare(enabled: boolean) {
     if (!currentId.value) return;
+    if (isLocked.value) {
+      throw new Error('简历已锁定，无法修改分享状态。');
+    }
     const res = await updateResumeApi({
       resume_id: currentId.value,
       is_public: enabled,
     });
     isPublic.value = enabled;
     shareToken.value = enabled ? res.data?.share_token || null : null;
+  }
+
+  /** 锁定 / 解锁简历（锁定后禁止编辑与删除，含 MCP） */
+  async function setResumeLocked(resumeId: string, locked: boolean) {
+    const res = await updateResumeApi({
+      resume_id: resumeId,
+      is_locked: locked,
+    });
+    const nextLocked = res.data?.is_locked ?? locked;
+    if (currentId.value === resumeId) {
+      isLocked.value = nextLocked;
+    }
+    const item = list.value.find((r) => r.resume_id === resumeId);
+    if (item) item.is_locked = nextLocked;
+    return nextLocked;
   }
 
   async function removeResume(resumeId: string) {
@@ -380,6 +403,7 @@ export const useResumeStore = defineStore('resume', () => {
     title,
     data,
     isPublic,
+    isLocked,
     shareToken,
     isLoading,
     isSaving,
@@ -391,6 +415,7 @@ export const useResumeStore = defineStore('resume', () => {
     loadResume,
     saveResume,
     setPublicShare,
+    setResumeLocked,
     removeResume,
     duplicateResume,
     updateBasics,

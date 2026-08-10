@@ -22,6 +22,17 @@ const selectedTemplateId = ref('modern');
 const sampleResumeData = createSampleResumeData();
 const userInitial = computed(() => userStore.displayName.trim().charAt(0).toUpperCase() || 'U');
 
+const isPreviewVisible = ref(false);
+const previewResume = ref<IResumeSummary | null>(null);
+const previewPageIndex = ref(0);
+const previewPageCount = ref(1);
+const isTogglingLock = ref(false);
+let previewWheelLockedUntil = 0;
+
+const previewConfig = computed(() =>
+  previewResume.value ? resumeThumbConfig(previewResume.value) : null
+);
+
 onMounted(async () => {
   await Promise.all([resumeStore.fetchList(), templateStore.fetchList()]);
   if (templateStore.list.length) {
@@ -55,13 +66,30 @@ async function handleCreate() {
   }
 }
 
+function openPreview(item: IResumeSummary) {
+  previewResume.value = item;
+  previewPageIndex.value = 0;
+  previewPageCount.value = 1;
+  isPreviewVisible.value = true;
+}
+
 function openEditor(id: string) {
+  const item = resumeStore.list.find((r) => r.resume_id === id);
+  if (item?.is_locked) {
+    ElMessage.warning('简历已锁定，请先解锁再编辑');
+    return;
+  }
+  isPreviewVisible.value = false;
   router.push(`/editor/${id}`);
 }
 
-async function handleDelete(id: string, title: string) {
+async function handleDelete(item: IResumeSummary) {
+  if (item.is_locked) {
+    ElMessage.warning('简历已锁定，无法删除');
+    return;
+  }
   try {
-    await ElMessageBox.confirm(`删除后将无法恢复「${title}」，确定继续吗？`, '删除这份简历？', {
+    await ElMessageBox.confirm(`删除后将无法恢复「${item.title}」，确定继续吗？`, '删除这份简历？', {
       type: 'warning',
       confirmButtonText: '确认删除',
       cancelButtonText: '保留简历',
@@ -71,14 +99,68 @@ async function handleDelete(id: string, title: string) {
   } catch {
     return;
   }
-  await resumeStore.removeResume(id);
-  ElMessage.success('已删除');
+  try {
+    await resumeStore.removeResume(item.resume_id);
+    if (previewResume.value?.resume_id === item.resume_id) {
+      isPreviewVisible.value = false;
+      previewResume.value = null;
+    }
+    ElMessage.success('已删除');
+  } catch {
+    // 拦截器已提示
+  }
 }
 
 async function handleCopy(item: IResumeSummary) {
   const id = await resumeStore.duplicateResume(item.resume_id);
-  if (id) ElMessage.success('已复制');
-  else ElMessage.error('复制失败');
+  if (id) {
+    ElMessage.success('已复制（副本未锁定）');
+    await resumeStore.fetchList();
+  } else {
+    ElMessage.error('复制失败');
+  }
+}
+
+async function handleToggleLock(item: IResumeSummary) {
+  if (isTogglingLock.value) return;
+  isTogglingLock.value = true;
+  try {
+    const next = !item.is_locked;
+    await resumeStore.setResumeLocked(item.resume_id, next);
+    if (previewResume.value?.resume_id === item.resume_id) {
+      previewResume.value = {
+        ...previewResume.value,
+        is_locked: next,
+      };
+    }
+    ElMessage.success(next ? '已锁定：不可编辑、删除或被 MCP 修改' : '已解锁');
+  } catch {
+    // 拦截器已提示
+  } finally {
+    isTogglingLock.value = false;
+  }
+}
+
+function handlePreviewPageCount(count: number) {
+  previewPageCount.value = Math.max(1, count);
+  if (previewPageIndex.value > previewPageCount.value - 1) {
+    previewPageIndex.value = previewPageCount.value - 1;
+  }
+}
+
+function goPreviewPage(delta: number) {
+  const next = previewPageIndex.value + delta;
+  if (next < 0 || next >= previewPageCount.value) return;
+  previewPageIndex.value = next;
+}
+
+function handlePreviewWheel(event: WheelEvent) {
+  if (previewPageCount.value <= 1) return;
+  const now = Date.now();
+  if (now < previewWheelLockedUntil) return;
+  if (Math.abs(event.deltaY) < 20) return;
+  previewWheelLockedUntil = now + 280;
+  goPreviewPage(event.deltaY > 0 ? 1 : -1);
 }
 
 function handleLogout() {
@@ -228,22 +310,17 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
             v-for="(item, index) in resumeStore.list"
             :key="item.resume_id"
             class="resume-card"
+            :class="{ locked: item.is_locked }"
             :style="{ '--card-index': index }"
-            @click="openEditor(item.resume_id)"
+            tabindex="0"
+            @click="openPreview(item)"
+            @keydown.enter="openPreview(item)"
           >
             <PaperThumb :data="resumePreviewData(item)" :config="resumeThumbConfig(item)">
-              <div class="paper-actions" @click.stop>
-                <el-button class="action-button" size="small" @click="handleCopy(item)">
-                  复制
-                </el-button>
-                <el-button
-                  class="action-button danger"
-                  size="small"
-                  @click="handleDelete(item.resume_id, item.title)"
-                >
-                  删除
-                </el-button>
-              </div>
+              <span v-if="item.is_locked" class="lock-badge" title="已锁定">
+                <el-icon><Lock /></el-icon>
+                已锁定
+              </span>
             </PaperThumb>
 
             <div class="card-meta">
@@ -258,6 +335,119 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
         </div>
       </section>
     </main>
+
+    <el-dialog
+      v-model="isPreviewVisible"
+      class="preview-dialog"
+      width="min(780px, calc(100vw - 32px), calc((100vh - 48px) * 210 / 297 / 0.55))"
+      :show-close="false"
+      align-center
+      destroy-on-close
+    >
+      <template v-if="previewResume">
+        <div class="modal-preview">
+          <div class="modal-preview-stage" @wheel="handlePreviewWheel">
+            <div class="modal-paper">
+              <PaperThumb
+                v-if="previewConfig"
+                :data="resumePreviewData(previewResume)"
+                :config="previewConfig"
+                :fallback-scale="0.54"
+                show-all-pages
+                page-layout="flip"
+                :page-index="previewPageIndex"
+                @page-count="handlePreviewPageCount"
+              />
+            </div>
+
+            <button
+              v-if="previewPageIndex > 0"
+              class="page-nav prev"
+              type="button"
+              aria-label="上一页"
+              @click="goPreviewPage(-1)"
+            >
+              <el-icon><ArrowLeft /></el-icon>
+            </button>
+            <button
+              v-if="previewPageIndex < previewPageCount - 1"
+              class="page-nav next"
+              type="button"
+              aria-label="下一页"
+              @click="goPreviewPage(1)"
+            >
+              <el-icon><ArrowRight /></el-icon>
+            </button>
+            <div v-if="previewPageCount > 1" class="page-indicator">
+              {{ previewPageIndex + 1 }} / {{ previewPageCount }}
+            </div>
+          </div>
+
+          <aside class="modal-details">
+            <button
+              class="modal-close"
+              type="button"
+              aria-label="关闭预览"
+              @click="isPreviewVisible = false"
+            >
+              <el-icon><Close /></el-icon>
+            </button>
+            <span class="detail-eyebrow">
+              {{ previewResume.is_locked ? '已锁定' : '我的简历' }}
+            </span>
+            <h2>{{ previewResume.title }}</h2>
+            <p class="detail-description">
+              {{
+                previewResume.is_locked
+                  ? '锁定中：不可编辑、删除或被 MCP 修改，仅可复制。'
+                  : '可编辑内容，或锁定后防止 MCP / 误删改动。'
+              }}
+            </p>
+
+            <div class="detail-block">
+              <span>模板</span>
+              <strong>{{ templateName(previewResume.template_id) }}</strong>
+            </div>
+            <div class="detail-block">
+              <span>更新于</span>
+              <strong>{{ formatDate(previewResume.updated_at) }}</strong>
+            </div>
+
+            <div class="modal-actions">
+              <el-button
+                v-if="!previewResume.is_locked"
+                class="modal-primary"
+                type="primary"
+                @click="openEditor(previewResume.resume_id)"
+              >
+                编辑简历
+                <el-icon><ArrowRight /></el-icon>
+              </el-button>
+              <el-button @click="handleCopy(previewResume)">复制</el-button>
+              <el-button
+                :loading="isTogglingLock"
+                :type="previewResume.is_locked ? 'warning' : 'default'"
+                @click="handleToggleLock(previewResume)"
+              >
+                <el-icon>
+                  <Unlock v-if="previewResume.is_locked" />
+                  <Lock v-else />
+                </el-icon>
+                {{ previewResume.is_locked ? '解锁' : '锁定' }}
+              </el-button>
+              <el-button
+                type="danger"
+                plain
+                :disabled="Boolean(previewResume.is_locked)"
+                @click="handleDelete(previewResume)"
+              >
+                删除
+              </el-button>
+            </div>
+          </aside>
+        </div>
+      </template>
+    </el-dialog>
 
     <el-dialog
       v-model="showCreateDialog"
@@ -640,58 +830,210 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
     0 8px 16px rgba(15, 23, 42, 0.06);
 }
 
-/* 操作栏默认隐藏，hover / 键盘聚焦时从纸张底部淡入 */
-.paper-actions {
+.lock-badge {
   position: absolute;
-  inset: auto 0 0;
-  padding: 36px 10px 12px;
-  display: flex;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.94) 58%);
-  opacity: 0;
-  transform: translateY(12px);
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 650;
   pointer-events: none;
-  transition:
-    opacity 250ms $paper-ease,
-    transform 250ms $paper-ease;
 }
 
-.resume-card:hover .paper-actions,
-.resume-card:focus-within .paper-actions {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
+:deep(.preview-dialog) {
+  padding: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.22);
+
+  .el-dialog__header {
+    display: none;
+  }
+
+  .el-dialog__body {
+    padding: 0;
+  }
 }
 
-:deep(.action-button) {
-  height: 30px;
-  margin: 0;
-  padding: 0 16px;
+.modal-preview {
+  display: grid;
+  grid-template-columns: 55% 45%;
+}
+
+.modal-preview-stage {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+
+  &:hover,
+  &:focus-within {
+    .page-nav,
+    .page-indicator {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+}
+
+.modal-paper {
+  width: 100%;
+  aspect-ratio: 210 / 297;
+  overflow: hidden;
+
+  :deep(.cv-paper) {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+.page-nav {
+  width: 36px;
+  height: 36px;
+  position: absolute;
+  top: 50%;
+  z-index: 5;
   border: 1px solid #e2e8f0;
   border-radius: 999px;
-  color: #475569;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.96);
+  color: #334155;
+  display: grid;
+  place-items: center;
+  transform: translateY(-50%);
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+
+  &:hover {
+    color: #2563eb;
+    border-color: #bfdbfe;
+  }
+
+  &.prev {
+    left: 10px;
+  }
+
+  &.next {
+    right: 10px;
+  }
+}
+
+.page-indicator {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 5;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #fff;
+  font-size: 12px;
   font-weight: 600;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
-  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.modal-details {
+  padding: 42px 28px 28px;
+  position: relative;
+  background: #fff;
+
+  .detail-eyebrow {
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+  }
+
+  h2 {
+    margin: 8px 0 10px;
+    color: #0f172a;
+    font-size: 22px;
+    line-height: 1.25;
+    letter-spacing: -0.03em;
+  }
+
+  .detail-description {
+    margin: 0 0 18px;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+}
+
+.modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #64748b;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
 
   &:hover {
     color: #0f172a;
-    border-color: #cbd5e1;
-    background: #f8fafc;
+    background: #e2e8f0;
+  }
+}
+
+.detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+
+  span {
+    color: #94a3b8;
+    font-size: 12px;
   }
 
-  &.danger {
-    color: #dc2626;
-    border-color: #fecaca;
+  strong {
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 650;
+  }
+}
 
-    &:hover {
-      color: #b91c1c;
-      border-color: #fca5a5;
-      background: #fef2f2;
-    }
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 22px;
+
+  .modal-primary {
+    width: 100%;
+    height: 42px;
+    margin-bottom: 4px;
+  }
+}
+
+@media (max-width: 720px) {
+  .modal-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-paper {
+    max-height: 42vh;
   }
 }
 

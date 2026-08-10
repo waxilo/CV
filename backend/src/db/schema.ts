@@ -27,6 +27,8 @@ export const resumes = sqliteTable('resume', {
   data: text('data', { mode: 'json' }).notNull(),
   templateId: text('template_id').notNull().default('modern'),
   isPublic: integer('is_public', { mode: 'boolean' }).notNull().default(false),
+  /** 锁定后禁止编辑/删除（含 MCP），仅允许复制 */
+  isLocked: integer('is_locked', { mode: 'boolean' }).notNull().default(false),
   /** 公开分享令牌；每次开启分享重新生成，关闭后置空 */
   shareToken: text('share_token'),
   createdAt: text('created_at')

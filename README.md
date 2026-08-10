@@ -1,8 +1,17 @@
 # CV Builder
 
-模块化简历制作工具：后端 Cloudflare Workers，前端 Vue 3（网页 + Tauri 桌面）。
+模块化简历制作工具：后端 Cloudflare Workers，前端 Vue 3（网页 + Tauri 桌面），并提供 npm MCP 包供 AI Agent 读写简历。
 
 数据模型与编辑交互参考 [Reactive Resume](https://github.com/AmruthPillai/Reactive-Resume)（JSON 化简历结构、分节模块、模板切换）。
+
+## 在线地址
+
+| 用途 | 地址 |
+|------|------|
+| 网页 | https://cv.sloan.dpdns.org/ |
+| API | https://cv-api.sloan.dpdns.org |
+| MCP npm | [@waxilo/cv-mcp](https://www.npmjs.com/package/@waxilo/cv-mcp) |
+| 仓库 | https://github.com/waxilo/CV |
 
 ## 目录结构
 
@@ -10,8 +19,10 @@
 CV/
 ├── backend/          # Cloudflare Workers + Hono + D1
 ├── frontend/         # Vue 3 + Element Plus（Web / Tauri）
-└── shared/           # 前后端共享代码
-    └── template-schema/   # 模板配置类型 / 校验 / 迁移 / 内置模板
+├── mcp/              # MCP Server（发布为 @waxilo/cv-mcp）
+├── shared/           # 前后端共享代码
+│   └── template-schema/   # 模板配置类型 / 校验 / 迁移 / 内置模板
+└── docs/             # 模板引擎文档
 ```
 
 ## 功能
@@ -19,11 +30,15 @@ CV/
 - 注册 / 登录（JWT）
 - 简历 CRUD 与自动保存
 - 模块增删、显隐、拖拽排序（vuedraggable）
+- **首页预览弹窗**：点击「我的简历」不直接进编辑页，先弹出预览（与模板中心同交互）；编辑 / 复制 / 锁定 / 删除在弹窗内操作
+- **简历锁定**：锁定后禁止网页编辑、删除与 MCP 改写，仅允许复制（副本默认未锁定）；可随时解锁
 - 代码化 HTML 模板引擎：模板作者写 HTML + CSS，通过变量与简历 JSON 拼装
 - 模板设计器双模式：代码模式（HTML/CSS + 变量树）与区块模式（拖拽画布）
 - 模板变量声明与调参，用户的调参结果存在简历侧，内置模板可被每人各自定制
 - 隔离渲染预览（`sandbox=""` iframe + CSP，零脚本）
-- 浏览器打印导出 PDF
+- 浏览器打印导出 PDF；导出 HTML（内嵌结构化数据，可再导入）
+- 在线分享预览链接
+- **MCP 接入**：创建 API Key，一键复制安装提示词，由 AI Agent 安装全局 MCP 并改简历
 - 网页部署（Cloudflare Pages）与桌面打包（Tauri）
 
 ## 快速开始
@@ -38,6 +53,14 @@ npm run dev
 ```
 
 线上 API：`https://cv-api.sloan.dpdns.org`
+
+部署：
+
+```bash
+cd backend
+npm run db:migrate:remote   # 有新 migration 时
+npm run deploy
+```
 
 ### 2. 前端（Web 开发）
 
@@ -65,8 +88,6 @@ npx wrangler pages deploy dist --project-name=cv-web
 
 构建产物在 `frontend/dist`，也可部署到任意静态托管（Nginx / OSS / GitHub Pages 等）。SPA 回退已配置 `public/_redirects`。
 
-当前 Pages 地址：https://cv-web-57j.pages.dev/
-
 ### 4. 前端（Tauri 桌面）
 
 需已安装 [Rust](https://www.rust-lang.org/tools/install)。
@@ -78,15 +99,75 @@ npm run tauri:dev
 npm run tauri:build                 # 使用 .env.production 中的 API
 ```
 
+### 5. MCP 包（本地开发 / 发布）
+
+```bash
+cd mcp
+npm install
+npm run build
+npm publish --access public   # 需 npm 登录且具备 publish 权限
+```
+
+## MCP：用 AI 改简历
+
+不必把提示词塞进 HTML。推荐流程：
+
+1. 打开网页 [MCP 接入](https://cv.sloan.dpdns.org/mcp)（简历首页顶栏，模板中心旁）
+2. 创建 API Key（明文仅显示一次）
+3. **一键复制安装提示词**，粘贴到 Cursor / Claude 等 Agent
+4. Agent 写入全局 MCP（`npx -y @waxilo/cv-mcp`）后即可 `list_resumes` / 改简历
+
+锁定中的简历：MCP 可 `list` / `get`，但 `update_*` 会收到 `RESUME_LOCKED`；请在首页预览弹窗解锁后再改。
+
+手动配置示例：
+
+```json
+{
+  "mcpServers": {
+    "cv-builder": {
+      "command": "npx",
+      "args": ["-y", "@waxilo/cv-mcp"],
+      "env": {
+        "CV_API_BASE": "https://cv-api.sloan.dpdns.org",
+        "CV_API_TOKEN": "cvk_你的API_Key"
+      }
+    }
+  }
+}
+```
+
+| 环境变量 | 说明 |
+|----------|------|
+| `CV_API_TOKEN` | 网页创建的 API Key（`cvk_…`），也可用登录 JWT |
+| `CV_API_BASE` | API 根地址，默认 `https://cv-api.sloan.dpdns.org` |
+
+鉴权：简历等接口同时支持 **JWT**（网页登录）与 **API Key**（MCP）。管理 API Key 的接口仅允许网页 JWT。
+
+更多说明见 [`mcp/README.md`](./mcp/README.md)。
+
 ## API 约定
 
 | 服务 | 路径前缀 |
 |------|----------|
-| 认证 | `POST /api/auth-service/v1/*` |
+| 认证 / API Key | `POST /api/auth-service/v1/*` |
 | 简历 | `POST /api/resume-service/v1/*` |
 | 模板 | `POST /api/template-service/v1/*` |
+| 分享 | `POST /api/share-service/v1/*` |
 
 统一响应：`{ success, code, message, data }`，字段 `snake_case`。
+
+简历 `update-resume` 可传 `is_locked`；已锁定时改内容或删除返回 `403` / `RESUME_LOCKED`（解锁时只传 `is_locked: false` 即可）。
+
+常用认证相关：
+
+| 动作 | 路径 |
+|------|------|
+| 登录 | `/api/auth-service/v1/login` |
+| 创建 API Key | `/api/auth-service/v1/create-api-key` |
+| 列出 API Key | `/api/auth-service/v1/list-api-keys` |
+| 吊销 API Key | `/api/auth-service/v1/revoke-api-key` |
+
+请求头：`Authorization: Bearer <JWT 或 cvk_…>`。
 
 ## 模板引擎
 
@@ -150,5 +231,6 @@ h2  { color: var(--tpl-primary-color); }
 |----|------|
 | 后端 | Hono、Cloudflare Workers、D1、Drizzle、jose、Zod |
 | 前端 Web | Vue 3、Vite、Pinia、Vue Router、Element Plus、Cloudflare Pages |
+| MCP | `@waxilo/cv-mcp`（`@modelcontextprotocol/sdk`、stdio / npx） |
 | 共享 | `shared/template-schema`（纯 TS，前后端共用的模板 schema / 校验 / 迁移） |
 | 桌面 | Tauri 2 |

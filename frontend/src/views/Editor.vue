@@ -74,6 +74,12 @@ onMounted(async () => {
   const id = route.params.id as string;
   await resumeStore.loadResume(id);
 
+  if (resumeStore.isLocked) {
+    ElMessage.warning('该简历已锁定，无法进入编辑。请先在首页预览中解锁。');
+    router.replace('/');
+    return;
+  }
+
   window.addEventListener('keydown', onKeydown);
 
   autoSaveTimer = setInterval(async () => {
