@@ -33,12 +33,13 @@ const INSTRUCTIONS = `你正在通过 MCP 编辑 CV Builder 简历。
 2. 小改用 update_basics / update_section；大改组装完整 data 后用 update_resume。
 3. 写回前可用 validate_resume_data 检查结构。
 4. 尽量保留原有 section id、item id、order、visible、metadata.templateId。
-5. description / content 支持 Markdown（加粗、列表、链接）。
-6. 改完后用户在 CV Builder 网页刷新即可看到；导入 HTML 不是必需步骤。
+5. metadata.templateConfig 是简历持有的模板快照（HTML/CSS），不要修改或删除它；update_resume 整体写回时也要原样保留。
+6. description / content 支持 Markdown（加粗、列表、链接）。
+7. 改完后用户在 CV Builder 网页刷新即可看到；导入 HTML 不是必需步骤。
 
 【禁止】
 - 编造用户未提供的经历、公司、学历
-- 删除 metadata.theme 或把 data 改成非对象结构
+- 删除 metadata.theme / metadata.templateConfig 或把 data 改成非对象结构
 - 输出半截 JSON 或只改可见 HTML
 - 在未获用户明确同意时直接改写已锁定或正式原件`;
 
