@@ -17,6 +17,29 @@ import { errorResult, textResult } from './result.js';
 
 const resumeIdSchema = z.string().uuid().describe('简历 ID（UUID）');
 
+/** 模板变量声明（create/update 共用） */
+const variableSchema = z.object({
+  key: z.string().min(1).max(64),
+  label: z.string().max(64).optional(),
+  type: z.enum(['color', 'number', 'length', 'text', 'select', 'boolean']).optional(),
+  default: z.union([z.string(), z.number(), z.boolean()]).optional(),
+  options: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  step: z.number().optional(),
+  unit: z.string().optional(),
+  cssVar: z.string().optional(),
+  group: z.string().optional(),
+});
+
+/** 页边距（毫米，部分覆盖） */
+const marginObjectSchema = z.object({
+  top: z.number().min(0).max(50).optional(),
+  right: z.number().min(0).max(50).optional(),
+  bottom: z.number().min(0).max(50).optional(),
+  left: z.number().min(0).max(50).optional(),
+});
+
 /**
  * 将工具挂到 MCP Server。
  */
@@ -475,35 +498,8 @@ export function registerTools(server: McpServer, api: CvApiClient): void {
         .string()
         .optional()
         .describe('整体替换模板 CSS（作用域自动限制在 .cv-root 内）'),
-      variables: z
-        .array(
-          z.object({
-            key: z.string().min(1).max(64),
-            label: z.string().max(64).optional(),
-            type: z
-              .enum(['color', 'number', 'length', 'text', 'select', 'boolean'])
-              .optional(),
-            default: z.union([z.string(), z.number(), z.boolean()]).optional(),
-            options: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
-            min: z.number().optional(),
-            max: z.number().optional(),
-            step: z.number().optional(),
-            unit: z.string().optional(),
-            cssVar: z.string().optional(),
-            group: z.string().optional(),
-          })
-        )
-        .optional()
-        .describe('整体替换变量声明数组（变量 key 需与模板代码中 vars.* 使用一致）'),
-      margin: z
-        .object({
-          top: z.number().min(0).max(50).optional(),
-          right: z.number().min(0).max(50).optional(),
-          bottom: z.number().min(0).max(50).optional(),
-          left: z.number().min(0).max(50).optional(),
-        })
-        .optional()
-        .describe('页边距（毫米），只传需要改的边，其余保持原值'),
+      variables: variableSchema.array().optional().describe('整体替换变量声明数组（变量 key 需与模板代码中 vars.* 使用一致）'),
+      margin: marginObjectSchema.optional().describe('页边距（毫米），只传需要改的边，其余保持原值'),
     },
     async ({ resume_id, html, css, variables, margin }) => {
       try {
@@ -573,6 +569,155 @@ export function registerTools(server: McpServer, api: CvApiClient): void {
           note: hadSnapshot
             ? '已更新该简历固化的模板快照（模板中心与其他简历不受影响）'
             : '该简历此前未固化模板，已以模板中心当前配置为基线固化并应用修改',
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    }
+  );
+
+  server.tool(
+    'list_my_templates',
+    '列出模板中心「我的模板」（当前账号的自定义模板，不含内置）。创建或复用模板前可先调用，返回 template_id 供 base_template_id / 网页编辑使用。',
+    {},
+    async () => {
+      try {
+        const templates = await api.listTemplates();
+        const mine = templates.filter((t) => !t.is_builtin);
+        return textResult({
+          count: mine.length,
+          templates: mine.map((t) => ({
+            template_id: t.template_id,
+            name: t.name,
+            description: t.description,
+            engine: t.config.engine,
+            variable_count: (t.config.variables || []).length,
+          })),
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    }
+  );
+
+  server.tool(
+    'create_my_template',
+    '创建模板中心的「我的模板」。以 base_template_id（内置或我的模板，缺省 modern）为起点拷贝一份，再可选覆写 html / css / variables / margin / meta_title；不传覆写项则相当于复制该模板。创建后可被任意简历使用。',
+    {
+      name: z.string().min(1).max(64).describe('模板名称（在模板中心显示）'),
+      description: z.string().max(256).optional().describe('模板简介'),
+      base_template_id: z
+        .string()
+        .min(1)
+        .max(64)
+        .optional()
+        .describe('起点模板 ID（内置或我的模板，可用 list_my_templates / 内置模板名），缺省 modern'),
+      html: z
+        .string()
+        .optional()
+        .describe('可选：整体替换 HTML 源码（禁止 script 与事件属性）'),
+      css: z.string().optional().describe('可选：整体替换 CSS（作用域自动限制在 .cv-root 内）'),
+      variables: variableSchema.array().optional().describe('可选：整体替换变量声明数组'),
+      margin: marginObjectSchema.optional().describe('可选：页边距（毫米），只传需要改的边'),
+      meta_title: z
+        .string()
+        .max(100)
+        .optional()
+        .describe('可选：模板自述标题；缺省与 name 一致'),
+    },
+    async ({ name, description, base_template_id, html, css, variables, margin, meta_title }) => {
+      try {
+        const templates = await api.listTemplates();
+        const baseId = base_template_id || 'modern';
+        const base = templates.find((t) => t.template_id === baseId);
+        if (!base) {
+          return errorResult(`起点模板不存在：${baseId}`);
+        }
+        if (base.config.engine !== 'html') {
+          return errorResult(`起点模板引擎为 ${base.config.engine}，仅支持 html 引擎模板`);
+        }
+
+        const config: ITemplateConfig = JSON.parse(JSON.stringify(base.config)) as ITemplateConfig;
+        const changed: string[] = [];
+        if (html !== undefined) {
+          config.source = { ...config.source, html };
+          changed.push('html');
+        }
+        if (css !== undefined) {
+          config.source = { ...config.source, css };
+          changed.push('css');
+        }
+        if (variables !== undefined) {
+          config.variables = variables;
+          changed.push('variables');
+        }
+        if (margin !== undefined) {
+          config.page = {
+            ...config.page,
+            margin: { ...config.page.margin, ...margin },
+          };
+          changed.push('margin');
+        }
+        config.meta = { ...(config.meta || {}), title: meta_title || name };
+
+        const created = await api.createTemplate({ name, description, config });
+
+        return textResult({
+          ok: true,
+          template_id: created.template_id,
+          name,
+          base_template_id: baseId,
+          changed: changed.length ? changed : ['（未覆写，直接复制起点模板）'],
+          warnings: created.warnings || [],
+          note: '已保存到模板中心「我的模板」，可在网页模板中心查看与编辑，也可作为新简历的模板',
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    }
+  );
+
+  server.tool(
+    'save_resume_template_to_center',
+    '把简历当前固化的模板快照保存为模板中心的「我的模板」（name 缺省为「{来源模板}微调版」）。简历本身继续用其固化快照，不受影响；保存后该模板可复用于其他简历。未固化的简历请先用 update_resume_template 固化并微调。',
+    {
+      resume_id: resumeIdSchema,
+      name: z.string().min(1).max(64).optional().describe('可选：模板名称；缺省「{来源模板}微调版」'),
+      description: z.string().max(256).optional().describe('可选：模板简介'),
+    },
+    async ({ resume_id, name, description }) => {
+      try {
+        const detail = await api.getResume(resume_id);
+        const snapshot = detail.data.metadata?.templateConfig;
+        if (!snapshot || !isTemplateConfigShape(snapshot)) {
+          return errorResult(
+            '该简历未固化模板快照（渲染跟随模板中心）。请先用 update_resume_template 固化并微调，再保存到模板中心。'
+          );
+        }
+        if (snapshot.engine !== 'html') {
+          return errorResult(`模板引擎为 ${snapshot.engine}，仅支持 html 引擎模板`);
+        }
+
+        let finalName = name;
+        if (!finalName) {
+          const templates = await api.listTemplates();
+          const base = templates.find((t) => t.template_id === detail.data.metadata.templateId);
+          finalName = `「${base?.name || detail.data.metadata.templateId}」微调版`;
+        }
+
+        const config: ITemplateConfig = JSON.parse(JSON.stringify(snapshot)) as ITemplateConfig;
+        config.meta = { ...(config.meta || {}), title: finalName };
+
+        const created = await api.createTemplate({ name: finalName, description, config });
+
+        return textResult({
+          ok: true,
+          template_id: created.template_id,
+          name: finalName,
+          resume_id,
+          source_template_id: detail.data.metadata.templateId,
+          warnings: created.warnings || [],
+          note: '已从该简历的模板快照创建「我的模板」；简历本身快照与内容不受影响',
         });
       } catch (error) {
         return errorResult(error);

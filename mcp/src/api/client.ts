@@ -7,6 +7,7 @@ import type {
   IResumeData,
   IResumeDetail,
   IResumeSummary,
+  ITemplateConfig,
   ITemplateSummary,
 } from './types.js';
 import type { IMcpConfig } from '../config.js';
@@ -121,6 +122,24 @@ export class CvApiClient {
   async listTemplates(): Promise<ITemplateSummary[]> {
     const res = await this.post<ITemplateSummary[]>('/api/template-service/v1/list-templates', {});
     return res.data ?? [];
+  }
+
+  /**
+   * 创建「我的模板」（模板中心个人模板）。config 经后端完整校验（结构/限额/CSS 安全）。
+   */
+  async createTemplate(input: {
+    name: string;
+    description?: string;
+    config: ITemplateConfig;
+  }): Promise<{ template_id: string; warnings?: string[] }> {
+    const res = await this.post<{ template_id: string; warnings?: string[] }>(
+      '/api/template-service/v1/create-template',
+      input
+    );
+    if (!res.data) {
+      throw new CvApiError('创建模板响应为空', 502, 'TEMPLATE_CREATE_EMPTY');
+    }
+    return res.data;
   }
 
   private async post<T>(path: string, body: unknown): Promise<IApiResponse<T>> {

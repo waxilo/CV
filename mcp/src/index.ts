@@ -46,6 +46,12 @@ const INSTRUCTIONS = `你正在通过 MCP 编辑 CV Builder 简历。
 6. 未固化的旧简历首次 update_resume_template / update_resume_style 前，样式与模板仍跟随模板中心；update_resume_template 首次修改会自动固化，之后模板中心不影响它。
 7. 调整会改变渲染结果，改动前先读取现状，改完提醒用户到网页预览检查。
 
+【创建 / 保存「我的模板」（用户要求把模板存到模板中心、复用于其他简历时）】
+1. list_my_templates 查看现有个人模板。
+2. create_my_template：以 base_template_id（内置或我的模板）为起点，可选覆写 html / css / variables / margin 后创建为个人模板。
+3. save_resume_template_to_center：把某简历已固化的模板快照（含微调）直接存为个人模板；name 缺省「{来源模板}微调版」。
+4. 创建后返回 template_id；新简历可用 create_resume({ template_id }) 使用，或在网页模板中心「我的模板」查看/编辑/删除。
+
 【禁止】
 - 编造用户未提供的经历、公司、学历
 - 删除 metadata.theme / metadata.templateConfig 或把 data 改成非对象结构
