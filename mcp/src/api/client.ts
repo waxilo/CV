@@ -2,7 +2,13 @@
  * CV Builder HTTP 客户端：调用现有 resume-service API。
  */
 
-import type { IApiResponse, IResumeData, IResumeDetail, IResumeSummary } from './types.js';
+import type {
+  IApiResponse,
+  IResumeData,
+  IResumeDetail,
+  IResumeSummary,
+  ITemplateSummary,
+} from './types.js';
 import type { IMcpConfig } from '../config.js';
 
 export class CvApiError extends Error {
@@ -107,6 +113,14 @@ export class CvApiClient {
       throw new CvApiError('复制响应为空', 502, 'CLONE_EMPTY');
     }
     return res.data;
+  }
+
+  /**
+   * 模板中心列表（内置 + 我的模板）。用于简历无快照时取模板配置作为基线。
+   */
+  async listTemplates(): Promise<ITemplateSummary[]> {
+    const res = await this.post<ITemplateSummary[]>('/api/template-service/v1/list-templates', {});
+    return res.data ?? [];
   }
 
   private async post<T>(path: string, body: unknown): Promise<IApiResponse<T>> {

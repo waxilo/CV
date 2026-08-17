@@ -29,13 +29,21 @@ const INSTRUCTIONS = `你正在通过 MCP 编辑 CV Builder 简历。
 4. 除非用户明确要求「直接改原件」，否则不要 update 源 resume_id。
 
 【工作方式】
-1. 只改结构化数据（basics / sections / metadata），不要尝试生成或改 HTML/CSS。
+1. 内容编辑只改结构化数据（basics / sections / metadata），不要尝试生成或改 HTML/CSS。
 2. 小改用 update_basics / update_section；大改组装完整 data 后用 update_resume。
 3. 写回前可用 validate_resume_data 检查结构。
 4. 尽量保留原有 section id、item id、order、visible、metadata.templateId。
-5. metadata.templateConfig 是简历持有的模板快照（HTML/CSS），不要修改或删除它；update_resume 整体写回时也要原样保留。
+5. metadata.templateConfig 是简历持有的模板快照（HTML/CSS）；update_resume 整体写回时原样保留，不要手动改它。
 6. description / content 支持 Markdown（加粗、列表、链接）。
 7. 改完后用户在 CV Builder 网页刷新即可看到；导入 HTML 不是必需步骤。
+
+【调整模板（用户要求改模板样式 / 布局 / 颜色 / 字体时才用）】
+1. 先 get_resume_template 读取当前模板源码与变量声明，不要凭空改写。
+2. 用 update_resume_template 局部修改：html / css 整体替换源码，variables 替换变量声明，margin 改页边距。
+3. 模板语法：{{path}} 插值、{{#each}} 循环、{{& fieldSafe}} 输出富文本；CSS 作用域自动限制在 .cv-root，变量用 var(--tpl-*)。
+4. 禁止在 HTML 中写 <script> 或 onclick 等事件属性；不要改动 basics / sections 内容。
+5. 未固化的旧简历首次 update_resume_template 会自动以模板中心为基线固化，之后模板中心不影响它。
+6. 调整会改变渲染结果，改动前先 get_resume_template 备份源码，改完提醒用户到网页预览检查。
 
 【禁止】
 - 编造用户未提供的经历、公司、学历

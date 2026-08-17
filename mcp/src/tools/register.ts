@@ -5,7 +5,14 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CvApiClient } from '../api/client.js';
-import { isResumeDataShape, type IResumeBasics, type IResumeData, type IResumeSection } from '../api/types.js';
+import {
+  isResumeDataShape,
+  isTemplateConfigShape,
+  type IResumeBasics,
+  type IResumeData,
+  type IResumeSection,
+  type ITemplateConfig,
+} from '../api/types.js';
 import { errorResult, textResult } from './result.js';
 
 const resumeIdSchema = z.string().uuid().describe('简历 ID（UUID）');
@@ -294,6 +301,161 @@ export function registerTools(server: McpServer, api: CvApiClient): void {
         template_id: data.metadata.templateId,
         name: data.basics.name,
       });
+    }
+  );
+
+  server.tool(
+    'get_resume_template',
+    '读取简历当前使用的模板：HTML/CSS 源码、变量声明、页面设置与用户调参。调整模板前先调用。has_snapshot=true 表示这份简历持有固化模板副本（独立于模板中心）；false 表示仍跟随模板中心，update_resume_template 首次修改时会自动固化。',
+    { resume_id: resumeIdSchema },
+    async ({ resume_id }) => {
+      try {
+        const detail = await api.getResume(resume_id);
+        const config = detail.data.metadata?.templateConfig;
+        if (!config || !isTemplateConfigShape(config)) {
+          return textResult({
+            resume_id,
+            title: detail.title,
+            template_id: detail.data.metadata.templateId,
+            has_snapshot: false,
+            message:
+              '该简历未固化模板快照，渲染跟随模板中心。可用 update_resume_template 调整，首次保存会自动以模板中心当前配置为基线固化。',
+          });
+        }
+        return textResult({
+          resume_id,
+          title: detail.title,
+          template_id: detail.data.metadata.templateId,
+          has_snapshot: true,
+          engine: config.engine,
+          meta: config.meta || {},
+          page: config.page || {},
+          variables: config.variables || [],
+          source: config.source || {},
+          // 用户在编辑页调整过的变量值（渲染优先级最高）
+          user_vars: detail.data.metadata.templateVars || {},
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    }
+  );
+
+  server.tool(
+    'update_resume_template',
+    '调整简历的模板：整体替换 HTML 源码（html）、CSS（css）、变量声明（variables）或页边距（margin）。只改模板，不动简历内容，保存后立即生效。该简历此前未固化模板时，会自动以模板中心当前配置为基线固化再应用修改。仅支持 html 引擎模板；建议先 duplicate_resume 再改副本。',
+    {
+      resume_id: resumeIdSchema,
+      html: z
+        .string()
+        .optional()
+        .describe('整体替换模板 HTML 源码（engine=html 时生效；禁止 script 与事件属性）'),
+      css: z
+        .string()
+        .optional()
+        .describe('整体替换模板 CSS（作用域自动限制在 .cv-root 内）'),
+      variables: z
+        .array(
+          z.object({
+            key: z.string().min(1).max(64),
+            label: z.string().max(64).optional(),
+            type: z
+              .enum(['color', 'number', 'length', 'text', 'select', 'boolean'])
+              .optional(),
+            default: z.union([z.string(), z.number(), z.boolean()]).optional(),
+            options: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
+            min: z.number().optional(),
+            max: z.number().optional(),
+            step: z.number().optional(),
+            unit: z.string().optional(),
+            cssVar: z.string().optional(),
+            group: z.string().optional(),
+          })
+        )
+        .optional()
+        .describe('整体替换变量声明数组（变量 key 需与模板代码中 vars.* 使用一致）'),
+      margin: z
+        .object({
+          top: z.number().min(0).max(50).optional(),
+          right: z.number().min(0).max(50).optional(),
+          bottom: z.number().min(0).max(50).optional(),
+          left: z.number().min(0).max(50).optional(),
+        })
+        .optional()
+        .describe('页边距（毫米），只传需要改的边，其余保持原值'),
+    },
+    async ({ resume_id, html, css, variables, margin }) => {
+      try {
+        if (html === undefined && css === undefined && variables === undefined && margin === undefined) {
+          return errorResult('未提供任何修改项：html / css / variables / margin 至少传一个');
+        }
+
+        const detail = await api.getResume(resume_id);
+        const metadata = detail.data.metadata;
+        const hadSnapshot = Boolean(metadata?.templateConfig);
+
+        let config: ITemplateConfig | null = null;
+        if (metadata?.templateConfig && isTemplateConfigShape(metadata.templateConfig)) {
+          config = metadata.templateConfig;
+        } else {
+          // 未固化：以模板中心当前配置为基线
+          const templates = await api.listTemplates();
+          const found = templates.find((t) => t.template_id === metadata.templateId);
+          if (found && isTemplateConfigShape(found.config)) {
+            config = found.config;
+          }
+        }
+        if (!config) {
+          return errorResult('找不到该简历的模板配置，无法调整');
+        }
+        if (config.engine !== 'html') {
+          return errorResult(`模板引擎为 ${config.engine}，仅支持调整 html 引擎模板`);
+        }
+
+        const changed: string[] = [];
+        if (html !== undefined) {
+          config.source = { ...config.source, html };
+          changed.push('html');
+        }
+        if (css !== undefined) {
+          config.source = { ...config.source, css };
+          changed.push('css');
+        }
+        if (variables !== undefined) {
+          config.variables = variables;
+          changed.push('variables');
+        }
+        if (margin !== undefined) {
+          config.page = {
+            ...config.page,
+            margin: { ...config.page.margin, ...margin },
+          };
+          changed.push('margin');
+        }
+
+        // 深拷贝写回：整份 data 提交，后端会保留其余字段
+        const nextData: IResumeData = {
+          ...detail.data,
+          metadata: {
+            ...metadata,
+            templateConfig: JSON.parse(JSON.stringify(config)) as ITemplateConfig,
+          },
+        };
+        const result = await api.updateResume({ resume_id, data: nextData });
+
+        return textResult({
+          ok: true,
+          ...result,
+          changed,
+          has_snapshot: true,
+          engine: config.engine,
+          note: hadSnapshot
+            ? '已更新该简历固化的模板快照（模板中心与其他简历不受影响）'
+            : '该简历此前未固化模板，已以模板中心当前配置为基线固化并应用修改',
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
     }
   );
 }

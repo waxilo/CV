@@ -1,6 +1,6 @@
 # @waxilo/cv-mcp
 
-CV Builder 的 MCP Server：在 Cursor / Claude Desktop 里用工具读写简历 JSON（不改 HTML）。
+CV Builder 的 MCP Server：在 Cursor / Claude Desktop 里用工具读写简历 JSON，并可调整简历的模板（HTML/CSS/变量/页边距）。
 
 ## 环境变量
 
@@ -57,12 +57,16 @@ npx clear-npx-cache
 | `update_basics` | 合并更新 basics |
 | `update_section` | 按 id/type 合并更新某一模块 |
 | `validate_resume_data` | 校验结构 |
+| `get_resume_template` | 读取简历当前模板：HTML/CSS 源码、变量声明、页面设置 |
+| `update_resume_template` | 调整简历模板：替换 HTML/CSS、变量声明、页边距（未固化简历自动先固化） |
 
 新用户 / 空账号：`create_resume`（可带 `data`）→ 网页刷新查看。
 
 已有简历：`list_resumes` → `duplicate_resume` → `get_resume(副本)` → `update_*`。锁定原件也可复制；副本默认未锁定。
 
 内置模板：`modern` / `classic` / `minimal` / `technical` / `business`（默认 `modern`）。
+
+调整模板：`get_resume_template` → `update_resume_template`（html / css / variables / margin 局部修改）。模板语法：`{{path}}` 插值、`{{#each}}` 循环、`{{& fieldSafe}}` 富文本；禁止 `<script>` 与事件属性。
 
 ## 本地开发（维护者）
 
