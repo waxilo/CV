@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage, ElMessageBox, type ElInput } from 'element-plus';
 import { getBuiltinTemplate, type ITemplate, type ITemplateConfig } from '/@/types/template';
 import { useResumeStore } from '/@/stores/resume';
 import { useTemplateStore } from '/@/stores/template';
@@ -32,6 +32,12 @@ const isTogglingLock = ref(false);
 const isTogglingShare = ref(false);
 const isRefreshingPreview = ref(false);
 let previewWheelLockedUntil = 0;
+
+/** 预览卡内联编辑简历名称 */
+const isEditingTitle = ref(false);
+const isRenamingTitle = ref(false);
+const titleDraft = ref('');
+const titleInputRef = ref<InstanceType<typeof ElInput> | null>(null);
 
 const previewConfig = computed(() =>
   previewResume.value ? resumeThumbConfig(previewResume.value) : null
@@ -89,7 +95,55 @@ function openPreview(item: IResumeSummary) {
   previewPageCount.value = 1;
   isLargePreviewVisible.value = false;
   isShareVisible.value = false;
+  isEditingTitle.value = false;
   isPreviewVisible.value = true;
+}
+
+/** 进入内联编辑：仅未锁定的简历可改名 */
+function startEditTitle() {
+  if (!previewResume.value || previewResume.value.is_locked || isEditingTitle.value) return;
+  titleDraft.value = previewResume.value.title;
+  isEditingTitle.value = true;
+  void nextTick(() => titleInputRef.value?.focus());
+}
+
+/** Esc 取消：先退出编辑态，随后 blur 时不会再触发保存 */
+function cancelTitleEdit() {
+  isEditingTitle.value = false;
+}
+
+/** 回车 / 失焦保存；由 isRenamingTitle 与 isEditingTitle 双重防抖，避免重复提交 */
+async function commitTitleEdit() {
+  if (!isEditingTitle.value || isRenamingTitle.value) return;
+  const next = titleDraft.value.trim();
+  if (!next) {
+    ElMessage.warning('名称不能为空');
+    return;
+  }
+  if (!previewResume.value || next === previewResume.value.title) {
+    isEditingTitle.value = false;
+    return;
+  }
+  isRenamingTitle.value = true;
+  try {
+    await resumeStore.renameResume(previewResume.value.resume_id, next);
+    // store 已同步列表项，这里立即同步预览卡显示
+    syncPreviewFromList(previewResume.value.resume_id);
+    ElMessage.success('名称已更新');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '重命名失败';
+    ElMessage.error(message);
+  } finally {
+    isRenamingTitle.value = false;
+    isEditingTitle.value = false;
+  }
+  // 重命名会刷新 updated_at，后台刷新列表保持「最近更新」排序；失败不影响已成功的改名
+  try {
+    await resumeStore.fetchList();
+    if (previewResume.value) syncPreviewFromList(previewResume.value.resume_id);
+  } catch {
+    // 拦截器已提示
+  }
 }
 
 /** 弹窗关闭后 Element Plus 会把焦点还给触发卡片，去掉残留描边 */
@@ -411,7 +465,31 @@ function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
             <span class="detail-eyebrow">
               {{ previewResume.is_locked ? '已锁定' : '我的简历' }}
             </span>
-            <h2>{{ previewResume.title }}</h2>
+            <div class="detail-title-wrap">
+              <el-input
+                v-if="isEditingTitle"
+                ref="titleInputRef"
+                v-model="titleDraft"
+                class="title-edit-input"
+                maxlength="100"
+                :disabled="isRenamingTitle"
+                @keydown.enter="commitTitleEdit"
+                @keydown.esc="cancelTitleEdit"
+                @blur="commitTitleEdit"
+              />
+              <h2
+                v-else
+                class="detail-title"
+                :class="{ editable: !previewResume.is_locked }"
+                :title="previewResume.is_locked ? '已锁定，无法修改名称' : '点击修改名称'"
+                @click="startEditTitle"
+              >
+                {{ previewResume.title }}
+                <el-icon v-if="!previewResume.is_locked" class="title-edit-icon">
+                  <EditPen />
+                </el-icon>
+              </h2>
+            </div>
             <p class="detail-description">
               {{
                 previewResume.is_locked
@@ -962,12 +1040,56 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
     letter-spacing: 0.08em;
   }
 
-  h2 {
+  .detail-title-wrap {
     margin: 8px 0 10px;
+    min-height: 28px;
+  }
+
+  .detail-title {
+    margin: 0;
     color: #0f172a;
     font-size: 22px;
     line-height: 1.25;
     letter-spacing: -0.03em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 8px;
+
+    .title-edit-icon {
+      flex-shrink: 0;
+      opacity: 0;
+      color: #94a3b8;
+      transition: opacity 0.15s ease, color 0.15s ease;
+    }
+
+    &.editable {
+      cursor: text;
+
+      &:hover {
+        .title-edit-icon {
+          opacity: 1;
+          color: #2563eb;
+        }
+      }
+    }
+  }
+
+  .title-edit-input {
+    :deep(.el-input__wrapper) {
+      padding: 1px 10px;
+      border-radius: 8px;
+      box-shadow: 0 0 0 1px #bfdbfe inset;
+      background: #f8faff;
+    }
+
+    :deep(.el-input__inner) {
+      height: 28px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #0f172a;
+    }
   }
 
   .detail-description {

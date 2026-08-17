@@ -200,6 +200,26 @@ export const useResumeStore = defineStore('resume', () => {
     return nextLocked;
   }
 
+  /** 重命名简历（预览卡内联编辑用）；锁定中本地直接抛错，不发请求 */
+  async function renameResume(resumeId: string, nextTitle: string) {
+    const trimmed = nextTitle.trim();
+    const item = list.value.find((r) => r.resume_id === resumeId);
+    const locked = currentId.value === resumeId ? isLocked.value : Boolean(item?.is_locked);
+    if (locked) {
+      throw new Error('简历已锁定，无法修改名称。请先解锁。');
+    }
+    if (!trimmed) {
+      throw new Error('简历名称不能为空');
+    }
+    await updateResumeApi({ resume_id: resumeId, title: trimmed });
+    if (currentId.value === resumeId) {
+      title.value = trimmed;
+    }
+    if (item) {
+      item.title = trimmed;
+    }
+  }
+
   async function removeResume(resumeId: string) {
     await deleteResumeApi(resumeId);
     await fetchList();
@@ -432,6 +452,7 @@ export const useResumeStore = defineStore('resume', () => {
     setPublicShare,
     setResumePublicShare,
     setResumeLocked,
+    renameResume,
     removeResume,
     duplicateResume,
     updateBasics,
