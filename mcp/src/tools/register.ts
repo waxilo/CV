@@ -152,11 +152,16 @@ export function registerTools(server: McpServer, api: CvApiClient): void {
 
   server.tool(
     'get_resume',
-    '按 resume_id 拉取完整简历 JSON（basics / sections / metadata）。修改前必须先读取最新数据。若 is_locked=true，只能先 duplicate_resume 再改副本。',
+    '按 resume_id 拉取完整简历 JSON（basics / sections / metadata；出于体积考虑不含模板快照 HTML/CSS，模板相关请用 get_resume_template）。修改前必须先读取最新数据。若 is_locked=true，只能先 duplicate_resume 再改副本。',
     { resume_id: resumeIdSchema },
     async ({ resume_id }) => {
       try {
         const detail = await api.getResume(resume_id);
+        const metadata = detail.data.metadata;
+        const hasSnapshot = Boolean(metadata?.templateConfig);
+        // 剥离 templateConfig：模板源码体积大且不应经 update_resume 修改；
+        // 后端 update-resume 会保留简历既有快照，模板调整请用专门的 template 工具。
+        const { templateConfig: _templateConfig, ...metadataRest } = metadata || {};
         return textResult({
           resume_id: detail.resume_id,
           title: detail.title,
@@ -165,7 +170,8 @@ export function registerTools(server: McpServer, api: CvApiClient): void {
           is_public: detail.is_public,
           is_locked: Boolean(detail.is_locked),
           updated_at: detail.updated_at,
-          data: detail.data,
+          has_template_snapshot: hasSnapshot,
+          data: { ...detail.data, metadata: metadataRest },
         });
       } catch (error) {
         return errorResult(error);
@@ -202,7 +208,7 @@ export function registerTools(server: McpServer, api: CvApiClient): void {
 
   server.tool(
     'update_resume',
-    '用完整 IResumeData 覆盖写回简历。必须保留 basics、sections、metadata（含 templateId 与 theme）。适合大范围改写后一次性保存。建议先 duplicate_resume，再对本工具传入副本 resume_id。',
+    '用完整 IResumeData 覆盖写回简历。必须保留 basics、sections、metadata（含 templateId 与 theme）。data 无需包含模板快照 templateConfig，后端会自动保留简历既有的快照（模板调整请用 get_resume_template / update_resume_template）。适合大范围改写后一次性保存。建议先 duplicate_resume，再对本工具传入副本 resume_id。',
     {
       resume_id: resumeIdSchema,
       data: z

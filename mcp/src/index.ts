@@ -33,7 +33,7 @@ const INSTRUCTIONS = `你正在通过 MCP 编辑 CV Builder 简历。
 2. 小改用 update_basics / update_section；大改组装完整 data 后用 update_resume。
 3. 写回前可用 validate_resume_data 检查结构。
 4. 尽量保留原有 section id、item id、order、visible、metadata.templateId。
-5. metadata.templateConfig 是简历持有的模板快照（HTML/CSS）；update_resume 整体写回时原样保留，不要手动改它。
+5. get_resume 返回的 data 不含模板快照（体积考虑，has_template_snapshot 字段可判断是否已固化）；update_resume 写回时后端会自动保留简历既有快照，不要手动补 templateConfig。
 6. description / content 支持 Markdown（加粗、列表、链接）。
 7. 改完后用户在 CV Builder 网页刷新即可看到；导入 HTML 不是必需步骤。
 
