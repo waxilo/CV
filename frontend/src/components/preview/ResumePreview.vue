@@ -2,8 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import type { IResumeData } from '/@/types/resume';
 import type { ITemplateConfig } from '/@/types/template';
-import { normalizeTemplateConfig } from '/@/features/template-renderer';
-import { getBuiltinTemplate } from '@cv/template-schema';
+import { resolveResumeTemplateConfig } from '/@/features/template-renderer';
 import { useTemplateStore } from '/@/stores/template';
 import PaperThumb from './PaperThumb.vue';
 
@@ -26,41 +25,7 @@ const templateId = computed(() => props.data.metadata.templateId);
  * 内置模板已经是 v2 HTML 模板，所以不再需要 v1 时代的 Vue 组件回退路径。
  */
 async function resolveConfig() {
-  if (props.config) {
-    resolvedConfig.value = normalizeTemplateConfig(props.config);
-    return;
-  }
-
-  const snapshot = props.data.metadata?.templateConfig;
-  if (snapshot) {
-    resolvedConfig.value = normalizeTemplateConfig(snapshot);
-    return;
-  }
-
-  if (!templateStore.list.length) {
-    await templateStore.fetchList();
-  }
-
-  const found = templateStore.getById(templateId.value);
-  if (found) {
-    resolvedConfig.value = normalizeTemplateConfig(found.config);
-    return;
-  }
-
-  try {
-    const detail = await templateStore.loadDetail(templateId.value);
-    if (detail) {
-      resolvedConfig.value = normalizeTemplateConfig(detail.config);
-      return;
-    }
-  } catch {
-    // 接口不可用时继续走本地兜底
-  }
-
-  const builtin = getBuiltinTemplate(templateId.value);
-  resolvedConfig.value = normalizeTemplateConfig(
-    builtin ? builtin.config : getBuiltinTemplate('minimal')?.config
-  );
+  resolvedConfig.value = await resolveResumeTemplateConfig(props.data, templateStore, props.config);
 }
 
 onMounted(resolveConfig);

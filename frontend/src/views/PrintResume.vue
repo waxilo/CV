@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
-import { getBuiltinTemplate } from '@cv/template-schema';
 import { useResumeStore } from '/@/stores/resume';
 import { useTemplateStore } from '/@/stores/template';
-import { renderTemplate } from '/@/features/template-renderer';
+import { renderTemplate, resolveResumeTemplateConfig } from '/@/features/template-renderer';
 import { paginateResumeRoot } from '/@/features/template-renderer/paginate';
 
 const route = useRoute();
@@ -21,22 +20,8 @@ onMounted(async () => {
   await resumeStore.loadResume(id);
   if (!resumeStore.data) return;
 
-  // 完全固化语义：优先用简历自己的模板快照
-  let rawConfig: unknown = resumeStore.data.metadata?.templateConfig;
-  if (!rawConfig) {
-    const templateId = resumeStore.data.metadata.templateId;
-    if (!templateStore.list.length) await templateStore.fetchList();
-
-    let found = templateStore.getById(templateId);
-    if (!found) {
-      found = (await templateStore.loadDetail(templateId)) || undefined;
-    }
-
-    rawConfig =
-      found?.config ||
-      getBuiltinTemplate(templateId)?.config ||
-      getBuiltinTemplate('minimal')?.config;
-  }
+  // 完全固化语义：快照优先，统一走 resumeConfig 解析链
+  const rawConfig = await resolveResumeTemplateConfig(resumeStore.data, templateStore);
 
   // 与预览同一套 renderTemplate + 智能分页，保证导出 PDF 分页一致
   const result = renderTemplate(rawConfig, resumeStore.data);

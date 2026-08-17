@@ -40,5 +40,8 @@ export {
 /* 示例数据 */
 export * from './sampleData';
 
+/* 简历模板配置解析（快照优先） */
+export * from './resumeConfig';
+
 /* 预览智能分页 */
 export { paginateResumeRoot, clearPageSpacers, type IPaginateOptions, type IPageMarginMm } from './paginate';

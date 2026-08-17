@@ -7,9 +7,8 @@
 
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { getBuiltinTemplate } from '@cv/template-schema';
 import type { IResumeData } from '/@/types/resume';
-import { normalizeTemplateConfig, renderTemplate } from '/@/features/template-renderer';
+import { renderTemplate, resolveResumeTemplateConfig } from '/@/features/template-renderer';
 import { paginateResumeRoot } from '/@/features/template-renderer/paginate';
 import { useTemplateStore } from '/@/stores/template';
 import { sanitizeFilename } from './filename';
@@ -29,39 +28,13 @@ export interface IExportPdfOptions {
 }
 
 /**
- * 解析导出用模板配置（与 ResumePreview 同一套回退顺序）。
- *
- * 顺序：显式传入 → 简历模板快照（metadata.templateConfig，完全固化）
- * → store 列表 → 详情接口 → 内置模板。
+ * 解析导出用模板配置（与预览同一套快照优先回退链，见 resumeConfig.ts）。
  */
 export async function resolveExportTemplateConfig(
   data: IResumeData,
   explicitConfig?: unknown
 ): Promise<unknown> {
-  if (explicitConfig) return normalizeTemplateConfig(explicitConfig);
-
-  const snapshot = data.metadata?.templateConfig;
-  if (snapshot) return normalizeTemplateConfig(snapshot);
-
-  const templateStore = useTemplateStore();
-  const templateId = data.metadata.templateId;
-
-  if (!templateStore.list.length) {
-    await templateStore.fetchList();
-  }
-
-  const found = templateStore.getById(templateId);
-  if (found) return normalizeTemplateConfig(found.config);
-
-  try {
-    const detail = await templateStore.loadDetail(templateId);
-    if (detail) return normalizeTemplateConfig(detail.config);
-  } catch {
-    // 接口不可用时走内置模板
-  }
-
-  const builtin = getBuiltinTemplate(templateId);
-  return normalizeTemplateConfig(builtin?.config || getBuiltinTemplate('minimal')?.config);
+  return resolveResumeTemplateConfig(data, useTemplateStore(), explicitConfig);
 }
 
 function waitForNextPaint(): Promise<void> {

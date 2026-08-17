@@ -2,10 +2,14 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox, type ElInput } from 'element-plus';
-import { getBuiltinTemplate, type ITemplate, type ITemplateConfig } from '/@/types/template';
+import type { ITemplate, ITemplateConfig } from '/@/types/template';
 import { useResumeStore } from '/@/stores/resume';
 import { useTemplateStore } from '/@/stores/template';
-import { migrateTemplateConfig } from '/@/features/template-renderer';
+import {
+  builtinTemplateFallback,
+  migrateTemplateConfig,
+  pickResumeTemplateConfig,
+} from '/@/features/template-renderer';
 import { createSampleResumeData } from '/@/features/template-renderer/sampleData';
 import { copyText } from '/@/utils/clipboard';
 import AppTopbar from '/@/components/AppTopbar.vue';
@@ -115,6 +119,11 @@ function cancelTitleEdit() {
 /** 回车 / 失焦保存；由 isRenamingTitle 与 isEditingTitle 双重防抖，避免重复提交 */
 async function commitTitleEdit() {
   if (!isEditingTitle.value || isRenamingTitle.value) return;
+  // 弹窗已关闭（含卸载瞬间的 blur）时放弃提交，避免关闭动作触发一次多余的改名
+  if (!isPreviewVisible.value) {
+    isEditingTitle.value = false;
+    return;
+  }
   const next = titleDraft.value.trim();
   if (!next) {
     ElMessage.warning('名称不能为空');
@@ -323,17 +332,14 @@ function resumePreviewData(item: IResumeSummary): IResumeData {
   return hasBasics || hasSectionContent ? data : sampleResumeData;
 }
 
-/** 解析简历卡片缩略图用的模板配置：快照优先（完全固化语义） */
+/** 解析简历卡片缩略图用的模板配置：快照优先（完全固化语义），统一走 resumeConfig */
 function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
-  const snapshot = item.data?.metadata?.templateConfig;
-  if (snapshot) return migrateTemplateConfig(snapshot);
-
-  const templateId = item.template_id || item.data?.metadata?.templateId || 'minimal';
-  const found = templateStore.getById(templateId);
-  if (found) return found.config;
-
-  const builtin = getBuiltinTemplate(templateId) || getBuiltinTemplate('minimal');
-  return migrateTemplateConfig(builtin?.config);
+  const picked = pickResumeTemplateConfig(item.data, templateStore);
+  if (picked) return picked;
+  return (
+    builtinTemplateFallback(item.template_id || item.data?.metadata?.templateId) ||
+    migrateTemplateConfig({})
+  );
 }
 </script>
 
