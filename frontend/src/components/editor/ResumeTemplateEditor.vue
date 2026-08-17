@@ -10,7 +10,8 @@
  * - 保存走 resumeStore.updateTemplateConfig → markDirty → 现有自动保存/手动保存
  */
 import { computed, onMounted, ref, watch } from 'vue';
-import { ElMessage } from 'element-plus';
+import { useRouter } from 'vue-router';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { getBuiltinTemplate, type ITemplateConfig } from '/@/types/template';
 import { useResumeStore } from '/@/stores/resume';
 import { useTemplateStore } from '/@/stores/template';
@@ -26,6 +27,7 @@ import PaperThumb from '/@/components/preview/PaperThumb.vue';
 
 const resumeStore = useResumeStore();
 const templateStore = useTemplateStore();
+const router = useRouter();
 
 const draft = ref<ITemplateConfig | null>(null);
 /** 当前是否已持有固化快照（false = 旧数据，仍跟随模板中心） */
@@ -210,6 +212,56 @@ function revertDraft() {
   undoStack.value = [];
   redoStack.value = [];
 }
+
+const isSavingToCenter = ref(false);
+
+/** 把当前草稿保存为「我的模板」（模板中心），供其他简历复用 */
+async function saveToTemplateCenter() {
+  if (!draft.value || !resumeStore.data) return;
+  if (!validation.value?.valid) {
+    ElMessage.error(firstError.value || '模板配置无效');
+    return;
+  }
+  const baseName = sourceTemplateName.value || '我的模板';
+  let name: string;
+  try {
+    const { value } = await ElMessageBox.prompt('保存为模板中心的「我的模板」，可随时编辑并用于其他简历。', '保存到模板中心', {
+      inputValue: `「${baseName}」微调版`,
+      inputPlaceholder: '模板名称',
+      inputValidator: (v: string) => (v.trim() ? true : '请输入模板名称'),
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      closeOnClickModal: false,
+    });
+    name = value.trim();
+  } catch {
+    return;
+  }
+  if (isSavingToCenter.value) return;
+  isSavingToCenter.value = true;
+  try {
+    // meta.title 同步为输入名称，模板中心展示更一致
+    const config = cloneConfig(draft.value);
+    config.meta = { ...config.meta, title: name };
+    const id = await templateStore.createTemplate({ name, config });
+    if (!id) {
+      ElMessage.error('保存失败');
+      return;
+    }
+    try {
+      await ElMessageBox.confirm('已保存到模板中心「我的模板」，要现在去看看吗？', '保存成功', {
+        confirmButtonText: '去模板中心',
+        cancelButtonText: '继续编辑',
+        closeOnClickModal: false,
+      });
+      router.push('/templates');
+    } catch {
+      // 用户选择继续编辑
+    }
+  } finally {
+    isSavingToCenter.value = false;
+  }
+}
 </script>
 
 <template>
@@ -233,6 +285,14 @@ function revertDraft() {
         <el-button size="small" :disabled="!canUndo" @click="undo">撤销</el-button>
         <el-button size="small" :disabled="!canRedo" @click="redo">重做</el-button>
         <el-button size="small" @click="revertDraft">放弃修改</el-button>
+        <el-button
+          size="small"
+          :disabled="!isDraftValid || isSavingToCenter"
+          :loading="isSavingToCenter"
+          @click="saveToTemplateCenter"
+        >
+          保存到模板中心
+        </el-button>
         <el-button size="small" type="primary" :disabled="!isDraftValid" @click="saveToResume">
           保存修改
         </el-button>

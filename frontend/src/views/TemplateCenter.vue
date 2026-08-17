@@ -34,6 +34,7 @@ const favoriteTemplateIds = ref<Set<string>>(loadFavoriteTemplateIds());
 
 const categories: ITemplateCategory[] = [
   { label: '全部', keywords: [] },
+  { label: '我的模板', keywords: [] },
   { label: '推荐', keywords: ['推荐', '内置'] },
   { label: '应届生', keywords: ['应届生', '校招', '学生', '实习'] },
   { label: '程序员', keywords: ['程序员', '开发', '工程师', '互联网', '技术'] },
@@ -43,7 +44,12 @@ const categories: ITemplateCategory[] = [
   { label: '海外求职', keywords: ['海外', '英文', '国际'] },
 ];
 
+const myTemplates = computed(() => templateStore.list.filter((t) => !t.is_builtin));
+
 const filteredTemplates = computed(() => {
+  // 「我的模板」：只展示当前账号的自定义模板（简历内微调后保存到模板中心的模板）
+  if (activeCategory.value === '我的模板') return myTemplates.value;
+
   const category = categories.find((item) => item.label === activeCategory.value);
   if (!category || category.label === '全部') return templateStore.list;
 
@@ -223,6 +229,17 @@ function toggleFavorite(tpl: ITemplate): void {
         </div>
 
         <div v-loading="templateStore.isLoading" class="template-grid">
+          <button
+            v-if="activeCategory === '我的模板'"
+            class="create-template-card"
+            type="button"
+            @click="router.push('/templates/new')"
+          >
+            <span class="create-icon"><el-icon :size="22"><Plus /></el-icon></span>
+            <strong>新建模板</strong>
+            <span class="create-hint">从零开始，或复制内置模板微调</span>
+          </button>
+
           <article
             v-for="(tpl, index) in filteredTemplates"
             :key="tpl.template_id"
@@ -239,8 +256,12 @@ function toggleFavorite(tpl: ITemplate): void {
 
           <div v-if="!templateStore.isLoading && !filteredTemplates.length" class="empty-state">
             <span class="empty-icon"><el-icon :size="26"><Collection /></el-icon></span>
-            <h3>这个分类还没有模板</h3>
-            <p>切换其他分类，或创建属于你的模板</p>
+            <h3 v-if="activeCategory === '我的模板'">还没有个人模板</h3>
+            <h3 v-else>这个分类还没有模板</h3>
+            <p v-if="activeCategory === '我的模板'">
+              在简历编辑页「模板」面板微调后点「保存到模板中心」，或直接新建模板
+            </p>
+            <p v-else>切换其他分类，或创建属于你的模板</p>
             <el-button @click="selectCategory('全部')">查看全部模板</el-button>
           </div>
         </div>
@@ -497,6 +518,59 @@ $paper-ease: cubic-bezier(0.22, 1, 0.36, 1);
   cursor: pointer;
   animation: card-enter 0.48s both;
   animation-delay: calc(var(--template-index, 0) * 55ms);
+}
+
+/* 「我的模板」下的新建入口：与模板纸张同尺寸，只靠留白和虚线降低视觉权重 */
+.create-template-card {
+  width: 100%;
+  aspect-ratio: 210 / 297;
+  padding: 20px;
+  border: 1.5px dashed #dfe5ec;
+  border-radius: 4px;
+  background: rgba(248, 250, 252, 0.55);
+  color: #94a3b8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: transform 0.25s ease, border-color 0.25s ease, background-color 0.25s ease;
+
+  .create-icon {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: #94a3b8;
+    background: #fff;
+    transition: transform 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+  }
+
+  strong {
+    color: #475569;
+    font-size: 14px;
+    font-weight: 650;
+  }
+
+  .create-hint {
+    font-size: 12px;
+  }
+
+  &:hover {
+    transform: translateY(-4px);
+    border-color: #60a5fa;
+    background: rgba(239, 246, 255, 0.7);
+  }
+
+  &:hover .create-icon {
+    transform: rotate(90deg) scale(1.08);
+    border-color: #bfdbfe;
+    color: #2563eb;
+  }
 }
 
 .card-preview {
