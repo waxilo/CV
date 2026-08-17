@@ -305,6 +305,127 @@ export function registerTools(server: McpServer, api: CvApiClient): void {
   );
 
   server.tool(
+    'update_resume_style',
+    '调整简历样式（与网页编辑页「主题」面板一致）：主题色、文字色、字体、字号、行距、页边距、模板变量。只改样式，不动简历内容与模板结构；未传字段保持原值。模板变量 key 可先 get_resume_template 查看 variables 声明。',
+    {
+      resume_id: resumeIdSchema,
+      primary_color: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/, '需为 #RRGGBB 格式')
+        .optional()
+        .describe('主题主色，如 #2563eb'),
+      text_color: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/, '需为 #RRGGBB 格式')
+        .optional()
+        .describe('正文文字色，如 #0f172a'),
+      font_family: z
+        .string()
+        .min(1)
+        .max(64)
+        .optional()
+        .describe('正文字体，如 Microsoft YaHei / SimSun'),
+      font_size: z
+        .number()
+        .min(11)
+        .max(16)
+        .optional()
+        .describe('正文字号（px，11–16）'),
+      line_height: z
+        .number()
+        .min(1)
+        .max(1.8)
+        .optional()
+        .describe('行距倍数（1–1.8）'),
+      margin_mm: z
+        .number()
+        .min(0)
+        .max(40)
+        .optional()
+        .describe('页边距（毫米，四向统一，0–40）'),
+      variables: z
+        .record(z.union([z.string(), z.number(), z.boolean()]))
+        .optional()
+        .describe('模板变量覆写（合并写入），key 见 get_resume_template 的 variables 声明，如 { primaryColor: "#2563eb", headingFontFamily: "SimSun" }'),
+    },
+    async ({ resume_id, primary_color, text_color, font_family, font_size, line_height, margin_mm, variables }) => {
+      try {
+        if (
+          primary_color === undefined &&
+          text_color === undefined &&
+          font_family === undefined &&
+          font_size === undefined &&
+          line_height === undefined &&
+          margin_mm === undefined &&
+          variables === undefined
+        ) {
+          return errorResult('未提供任何修改项：primary_color / text_color / font_family / font_size / line_height / margin_mm / variables 至少传一个');
+        }
+
+        const detail = await api.getResume(resume_id);
+        const metadata = detail.data.metadata;
+        const theme = { ...metadata.theme };
+        const vars = { ...(metadata.templateVars || {}) };
+        const changed: string[] = [];
+
+        // 与前端 updateTheme 一致：theme 与 templateVars 同名变量同步写入
+        if (primary_color !== undefined) {
+          theme.primaryColor = primary_color;
+          vars.primaryColor = primary_color;
+          changed.push('primary_color');
+        }
+        if (text_color !== undefined) {
+          theme.textColor = text_color;
+          vars.textColor = text_color;
+          changed.push('text_color');
+        }
+        if (font_family !== undefined) {
+          theme.fontFamily = font_family;
+          vars.fontFamily = font_family;
+          changed.push('font_family');
+        }
+        if (font_size !== undefined) {
+          theme.fontSize = font_size;
+          vars.fontSize = font_size;
+          changed.push('font_size');
+        }
+        if (line_height !== undefined) {
+          theme.spacing = line_height;
+          vars.lineHeight = line_height;
+          changed.push('line_height');
+        }
+
+        const nextMetadata = { ...metadata, theme, templateVars: vars };
+        if (margin_mm !== undefined) {
+          nextMetadata.page = { ...(metadata.page || {}), format: 'a4' as const, margin: margin_mm };
+          changed.push('margin_mm');
+        }
+        if (variables !== undefined) {
+          for (const [key, value] of Object.entries(variables)) {
+            vars[key] = value;
+          }
+          changed.push('variables');
+        }
+
+        const nextData: IResumeData = { ...detail.data, metadata: nextMetadata };
+        const result = await api.updateResume({ resume_id, data: nextData });
+
+        return textResult({
+          ok: true,
+          ...result,
+          changed,
+          theme: nextMetadata.theme,
+          page: nextMetadata.page,
+          template_vars: vars,
+          note: '已更新样式；简历内容与模板结构未改动',
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    }
+  );
+
+  server.tool(
     'get_resume_template',
     '读取简历当前使用的模板：HTML/CSS 源码、变量声明、页面设置与用户调参。调整模板前先调用。has_snapshot=true 表示这份简历持有固化模板副本（独立于模板中心）；false 表示仍跟随模板中心，update_resume_template 首次修改时会自动固化。',
     { resume_id: resumeIdSchema },

@@ -57,6 +57,7 @@ npx clear-npx-cache
 | `update_basics` | 合并更新 basics |
 | `update_section` | 按 id/type 合并更新某一模块 |
 | `validate_resume_data` | 校验结构 |
+| `update_resume_style` | 调整样式：主题色/文字色/字体/字号/行距/页边距/模板变量 |
 | `get_resume_template` | 读取简历当前模板：HTML/CSS 源码、变量声明、页面设置 |
 | `update_resume_template` | 调整简历模板：替换 HTML/CSS、变量声明、页边距（未固化简历自动先固化） |
 
@@ -65,6 +66,8 @@ npx clear-npx-cache
 已有简历：`list_resumes` → `duplicate_resume` → `get_resume(副本)` → `update_*`。锁定原件也可复制；副本默认未锁定。
 
 内置模板：`modern` / `classic` / `minimal` / `technical` / `business`（默认 `modern`）。
+
+调整样式：`update_resume_style`（primary_color / text_color / font_family / font_size / line_height / margin_mm / variables）。
 
 调整模板：`get_resume_template` → `update_resume_template`（html / css / variables / margin 局部修改）。模板语法：`{{path}}` 插值、`{{#each}}` 循环、`{{& fieldSafe}}` 富文本；禁止 `<script>` 与事件属性。
 
