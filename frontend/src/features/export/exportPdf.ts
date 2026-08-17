@@ -30,12 +30,18 @@ export interface IExportPdfOptions {
 
 /**
  * 解析导出用模板配置（与 ResumePreview 同一套回退顺序）。
+ *
+ * 顺序：显式传入 → 简历模板快照（metadata.templateConfig，完全固化）
+ * → store 列表 → 详情接口 → 内置模板。
  */
 export async function resolveExportTemplateConfig(
   data: IResumeData,
   explicitConfig?: unknown
 ): Promise<unknown> {
   if (explicitConfig) return normalizeTemplateConfig(explicitConfig);
+
+  const snapshot = data.metadata?.templateConfig;
+  if (snapshot) return normalizeTemplateConfig(snapshot);
 
   const templateStore = useTemplateStore();
   const templateId = data.metadata.templateId;

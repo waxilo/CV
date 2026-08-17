@@ -21,12 +21,19 @@ const templateId = computed(() => props.data.metadata.templateId);
 /**
  * 解析要用哪份模板配置。
  *
- * 顺序：显式传入 → store 列表 → 详情接口 → 同名内置模板 → 默认模板。
+ * 顺序：显式传入 → 简历模板快照（metadata.templateConfig，完全固化）
+ * → store 列表 → 详情接口 → 同名内置模板 → 默认模板。
  * 内置模板已经是 v2 HTML 模板，所以不再需要 v1 时代的 Vue 组件回退路径。
  */
 async function resolveConfig() {
   if (props.config) {
     resolvedConfig.value = normalizeTemplateConfig(props.config);
+    return;
+  }
+
+  const snapshot = props.data.metadata?.templateConfig;
+  if (snapshot) {
+    resolvedConfig.value = normalizeTemplateConfig(snapshot);
     return;
   }
 
@@ -57,7 +64,7 @@ async function resolveConfig() {
 }
 
 onMounted(resolveConfig);
-watch([templateId, () => props.config], resolveConfig);
+watch([templateId, () => props.config, () => props.data.metadata?.templateConfig], resolveConfig);
 </script>
 
 <template>

@@ -16,6 +16,8 @@ import type {
   TSectionItem,
   TSectionType,
 } from '/@/types/resume';
+import type { ITemplateConfig } from '/@/types/template';
+import { cloneConfig } from '/@/features/template-renderer';
 
 function createEmptyItem(type: TSectionType): Record<string, unknown> {
   const id = uuidv4();
@@ -351,17 +353,26 @@ export const useResumeStore = defineStore('resume', () => {
   /**
    * 切换模板。
    *
-   * 同时把 templateVars 清空为 {}：新模板声明的变量默认值应该立刻生效，
-   * 而不是继承上一个模板的调参结果。空对象（而不是 undefined）也标记了
-   * 这份简历已进入新的变量体系，渲染时不再回退读 metadata.theme。
+   * 完全固化语义：把模板的完整配置（HTML/CSS/变量/页面）深拷贝进
+   * metadata.templateConfig 作为这份简历的模板快照，之后模板中心的修改
+   * 不影响本简历。同时把 templateVars 清空为 {}：新模板声明的变量默认值
+   * 应该立刻生效，而不是继承上一个模板的调参结果。
    */
-  function setTemplate(templateId: string, primaryColor?: string) {
+  function setTemplate(templateId: string, config: ITemplateConfig) {
     if (!data.value) return;
     data.value.metadata.templateId = templateId;
+    data.value.metadata.templateConfig = cloneConfig(config);
     data.value.metadata.templateVars = {};
-    if (primaryColor) {
-      data.value.metadata.theme.primaryColor = primaryColor;
+    if (config.primaryColor) {
+      data.value.metadata.theme.primaryColor = config.primaryColor;
     }
+    markDirty();
+  }
+
+  /** 更新本简历的模板快照（简历内嵌模板编辑器保存时用） */
+  function updateTemplateConfig(config: ITemplateConfig) {
+    if (!data.value) return;
+    data.value.metadata.templateConfig = cloneConfig(config);
     markDirty();
   }
 
@@ -467,6 +478,7 @@ export const useResumeStore = defineStore('resume', () => {
     reorderItems,
     updateSectionContent,
     setTemplate,
+    updateTemplateConfig,
     replaceResumeData,
     updateTheme,
     updateTemplateVar,

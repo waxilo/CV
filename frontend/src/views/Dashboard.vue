@@ -323,8 +323,11 @@ function resumePreviewData(item: IResumeSummary): IResumeData {
   return hasBasics || hasSectionContent ? data : sampleResumeData;
 }
 
-/** 解析简历卡片缩略图用的模板配置 */
+/** 解析简历卡片缩略图用的模板配置：快照优先（完全固化语义） */
 function resumeThumbConfig(item: IResumeSummary): ITemplateConfig {
+  const snapshot = item.data?.metadata?.templateConfig;
+  if (snapshot) return migrateTemplateConfig(snapshot);
+
   const templateId = item.template_id || item.data?.metadata?.templateId || 'minimal';
   const found = templateStore.getById(templateId);
   if (found) return found.config;

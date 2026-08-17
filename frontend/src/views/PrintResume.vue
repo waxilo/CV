@@ -21,18 +21,22 @@ onMounted(async () => {
   await resumeStore.loadResume(id);
   if (!resumeStore.data) return;
 
-  const templateId = resumeStore.data.metadata.templateId;
-  if (!templateStore.list.length) await templateStore.fetchList();
+  // 完全固化语义：优先用简历自己的模板快照
+  let rawConfig: unknown = resumeStore.data.metadata?.templateConfig;
+  if (!rawConfig) {
+    const templateId = resumeStore.data.metadata.templateId;
+    if (!templateStore.list.length) await templateStore.fetchList();
 
-  let found = templateStore.getById(templateId);
-  if (!found) {
-    found = (await templateStore.loadDetail(templateId)) || undefined;
+    let found = templateStore.getById(templateId);
+    if (!found) {
+      found = (await templateStore.loadDetail(templateId)) || undefined;
+    }
+
+    rawConfig =
+      found?.config ||
+      getBuiltinTemplate(templateId)?.config ||
+      getBuiltinTemplate('minimal')?.config;
   }
-
-  const rawConfig =
-    found?.config ||
-    getBuiltinTemplate(templateId)?.config ||
-    getBuiltinTemplate('minimal')?.config;
 
   // 与预览同一套 renderTemplate + 智能分页，保证导出 PDF 分页一致
   const result = renderTemplate(rawConfig, resumeStore.data);

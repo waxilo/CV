@@ -2,6 +2,8 @@
  * 简历数据结构（与后端保持一致，参考 Reactive Resume）
  */
 
+import type { ITemplateConfig } from './template';
+
 export type TSectionType =
   | 'basics'
   | 'summary'
@@ -138,6 +140,14 @@ export interface IResumeTheme {
 
 export interface IResumeMetadata {
   templateId: string;
+  /**
+   * 简历持有的模板完整副本（完全固化快照）。
+   *
+   * 创建/切换模板时从模板中心拷贝一份，之后模板中心的修改不影响已有简历。
+   * 渲染、分享、导出、打印均优先使用此快照；缺失（旧数据）时回退模板中心。
+   * 简历内嵌的模板编辑器修改的就是这份副本。
+   */
+  templateConfig?: ITemplateConfig;
   /**
    * 用户对模板 variables 的覆写值，key 与 ITemplateVariable.key 对应。
    *

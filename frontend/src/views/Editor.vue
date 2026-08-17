@@ -11,6 +11,7 @@ import EditorNav from '/@/components/editor/EditorNav.vue';
 import BasicsForm from '/@/components/editor/BasicsForm.vue';
 import SectionEditor from '/@/components/editor/SectionEditor.vue';
 import TemplatePicker from '/@/components/editor/TemplatePicker.vue';
+import ResumeTemplateEditor from '/@/components/editor/ResumeTemplateEditor.vue';
 import ThemePanel from '/@/components/editor/ThemePanel.vue';
 import ResumePreview from '/@/components/preview/ResumePreview.vue';
 
@@ -331,7 +332,11 @@ function togglePreviewImmersive() {
           </div>
           <div class="form-body">
             <BasicsForm v-if="activeKey === 'basics'" />
-            <TemplatePicker v-else-if="activeKey === 'template'" />
+            <template v-else-if="activeKey === 'template'">
+              <TemplatePicker />
+              <el-divider class="template-divider" />
+              <ResumeTemplateEditor />
+            </template>
             <ThemePanel v-else-if="activeKey === 'theme'" />
             <SectionEditor v-else-if="activeSectionId" :key="activeSectionId" :section-id="activeSectionId" />
           </div>
@@ -490,6 +495,10 @@ function togglePreviewImmersive() {
   min-height: 0;
   overflow: auto;
   padding: 16px 16px 32px;
+}
+
+.template-divider {
+  margin: 14px 0 10px;
 }
 
 .preview-col {
