@@ -5,7 +5,7 @@ import { createDb, resumes, templates } from '../db';
 import { generateId } from '../utils/jwt';
 import { authMiddleware, type AuthVariables } from '../middleware/auth';
 import { createDefaultResumeData, type IResumeData } from '../types/resume';
-import { getBuiltinTemplate, normalizeIncomingConfig } from '../template/schema';
+import { getBuiltinTemplate, normalizeForRead, type ITemplateConfigV2 } from '../template/schema';
 
 const createSchema = z.object({
   title: z.string().min(1).max(100).default('未命名简历'),
@@ -47,22 +47,17 @@ export const resumeRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
 resumeRoutes.use('*', authMiddleware);
 
 /**
- * 解析可用模板配置。
+ * 解析可用模板的完整配置。
  * 内置模板不入库，优先从代码查找；否则查用户自有或历史内置库记录。
  */
-async function resolveUsableTemplateConfig(
+async function resolveFullTemplateConfig(
   db: ReturnType<typeof createDb>,
   templateId: string,
   userId: string
-): Promise<{ primaryColor?: string; fontFamily?: string; fontSize?: number; spacing?: number } | null> {
+): Promise<ITemplateConfigV2 | null> {
   const builtin = getBuiltinTemplate(templateId);
   if (builtin) {
-    return normalizeIncomingConfig(builtin.config) as {
-      primaryColor?: string;
-      fontFamily?: string;
-      fontSize?: number;
-      spacing?: number;
-    };
+    return builtin.config;
   }
 
   const tplRows = await db
@@ -79,12 +74,7 @@ async function resolveUsableTemplateConfig(
 
   if (!tplRows[0]) return null;
 
-  return normalizeIncomingConfig(tplRows[0].config) as {
-    primaryColor?: string;
-    fontFamily?: string;
-    fontSize?: number;
-    spacing?: number;
-  };
+  return normalizeForRead(tplRows[0].config);
 }
 
 /** POST /api/resume-service/v1/create-resume */
@@ -105,7 +95,7 @@ resumeRoutes.post('/create-resume', async (c) => {
   const slug = parsed.data.slug || `resume-${id.slice(0, 8)}`;
   const templateId = parsed.data.template_id || 'modern';
 
-  const cfg = await resolveUsableTemplateConfig(db, templateId, user.sub);
+  const cfg = await resolveFullTemplateConfig(db, templateId, user.sub);
   if (!cfg) {
     return c.json(
       { success: false, code: 'TEMPLATE_NOT_FOUND', message: '模板不存在或无权使用' },
@@ -115,6 +105,9 @@ resumeRoutes.post('/create-resume', async (c) => {
 
   const data = createDefaultResumeData();
   data.metadata.templateId = templateId;
+  // 完全固化快照：把模板完整配置（HTML/CSS/变量/页面）拷贝进简历，
+  // 之后模板中心的修改不影响这份简历；渲染/分享/导出均优先用快照。
+  data.metadata.templateConfig = JSON.parse(JSON.stringify(cfg)) as ITemplateConfigV2;
   if (cfg.primaryColor) data.metadata.theme.primaryColor = cfg.primaryColor;
   if (cfg.fontFamily) data.metadata.theme.fontFamily = cfg.fontFamily;
   if (cfg.fontSize) data.metadata.theme.fontSize = cfg.fontSize;
@@ -285,14 +278,43 @@ resumeRoutes.post('/update-resume', async (c) => {
     updatedAt: new Date().toISOString(),
   };
   if (title !== undefined) patch.title = title;
-  if (data !== undefined) patch.data = data;
+  if (data !== undefined) {
+    const incoming = data as unknown as IResumeData;
+    const currentMeta = (current.data as IResumeData | null)?.metadata;
+    // 防御：旧客户端 / MCP 整体覆盖 data 时若没带模板快照，保留简历已有的快照，
+    // 避免「完全固化」的模板副本被意外清掉。
+    if (!incoming.metadata?.templateConfig && currentMeta?.templateConfig) {
+      incoming.metadata = {
+        ...(incoming.metadata || {}),
+        templateConfig: currentMeta.templateConfig,
+      };
+    }
+    patch.data = incoming;
+  }
   if (template_id !== undefined) {
-    const cfg = await resolveUsableTemplateConfig(db, template_id, user.sub);
+    const cfg = await resolveFullTemplateConfig(db, template_id, user.sub);
     if (!cfg) {
       return c.json(
         { success: false, code: 'TEMPLATE_NOT_FOUND', message: '模板不存在或无权使用' },
         404
       );
+    }
+    // 换模板 → 快照跟随换成新模板的完整配置（除非本次请求的 data 已自带新快照）
+    if (template_id !== current.templateId) {
+      const base =
+        data !== undefined
+          ? (data as unknown as IResumeData)
+          : (current.data as unknown as IResumeData);
+      if (!base.metadata?.templateConfig) {
+        patch.data = {
+          ...base,
+          metadata: {
+            ...(base.metadata || {}),
+            templateId: template_id,
+            templateConfig: JSON.parse(JSON.stringify(cfg)) as ITemplateConfigV2,
+          },
+        };
+      }
     }
     patch.templateId = template_id;
   }

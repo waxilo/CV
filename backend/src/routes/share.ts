@@ -18,8 +18,13 @@ const getSharedSchema = z.object({
 
 async function resolveTemplateConfig(
   db: ReturnType<typeof createDb>,
-  templateId: string
+  templateId: string,
+  resumeData?: IResumeData
 ): Promise<unknown> {
+  // 简历持有模板快照时优先用快照（完全固化语义）
+  const snapshot = (resumeData as IResumeData | null)?.metadata?.templateConfig;
+  if (snapshot) return normalizeForRead(snapshot);
+
   const builtin = getBuiltinTemplate(templateId);
   if (builtin) return builtin.config;
 
@@ -66,7 +71,7 @@ shareRoutes.post('/get-resume', async (c) => {
     );
   }
 
-  const templateConfig = await resolveTemplateConfig(db, resume.templateId);
+  const templateConfig = await resolveTemplateConfig(db, resume.templateId, resume.data as IResumeData);
   if (!templateConfig) {
     return c.json(
       { success: false, code: 'TEMPLATE_NOT_FOUND', message: '简历模板不可用' },

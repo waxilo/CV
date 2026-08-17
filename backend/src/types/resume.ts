@@ -142,6 +142,13 @@ export interface IResumeTheme {
 export interface IResumeMetadata {
   templateId: string;
   /**
+   * 简历持有的模板完整副本（完全固化快照）。
+   *
+   * 创建/切换模板时从模板中心拷贝一份，之后模板中心的修改不影响已有简历。
+   * 渲染、分享、导出、打印均优先使用此快照；缺失（旧数据）时回退模板中心。
+   */
+  templateConfig?: unknown;
+  /**
    * 用户对模板 variables 的覆写值，key 与 ITemplateVariable.key 对应。
    *
    * 属于用户数据而不是模板数据：内置模板只读、模板可被多人共用，
