@@ -5,7 +5,12 @@ import { createDb, resumes, templates } from '../db';
 import { generateId } from '../utils/jwt';
 import { authMiddleware, type AuthVariables } from '../middleware/auth';
 import { createDefaultResumeData, type IResumeData } from '../types/resume';
-import { getBuiltinTemplate, normalizeForRead, type ITemplateConfigV2 } from '../template/schema';
+import {
+  getBuiltinTemplate,
+  normalizeForRead,
+  TEMPLATE_LIMITS,
+  type ITemplateConfigV2,
+} from '../template/schema';
 
 const createSchema = z.object({
   title: z.string().min(1).max(100).default('未命名简历'),
@@ -280,6 +285,21 @@ resumeRoutes.post('/update-resume', async (c) => {
   if (title !== undefined) patch.title = title;
   if (data !== undefined) {
     const incoming = data as unknown as IResumeData;
+    // 限额：模板快照（HTML/CSS/变量）不应超过模板中心同款上限，防单简历无限膨胀
+    const rawConfig = incoming.metadata?.templateConfig;
+    if (rawConfig !== undefined) {
+      const configBytes = JSON.stringify(rawConfig).length;
+      if (configBytes > TEMPLATE_LIMITS.maxTotalConfigBytes) {
+        return c.json(
+          {
+            success: false,
+            code: 'TEMPLATE_CONFIG_tooLarge',
+            message: `模板配置过大（${configBytes} 字节，上限 ${TEMPLATE_LIMITS.maxTotalConfigBytes}），请精简后重试`,
+          },
+          400
+        );
+      }
+    }
     const currentMeta = (current.data as IResumeData | null)?.metadata;
     // 防御：旧客户端 / MCP 整体覆盖 data 时若没带模板快照，保留简历已有的快照，
     // 避免「完全固化」的模板副本被意外清掉。
