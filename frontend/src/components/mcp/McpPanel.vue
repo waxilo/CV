@@ -4,12 +4,19 @@
  */
 import { computed, onMounted, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { createApiKeyApi, listApiKeysApi, revokeApiKeyApi } from '/@/api/apiKey';
+import {
+  createApiKeyApi,
+  getApiKeyApi,
+  listApiKeysApi,
+  revokeApiKeyApi,
+  rotateApiKeyApi,
+} from '/@/api/apiKey';
 import type { IApiKeyCreated, IApiKeySummary } from '/@/types/apiKey';
 import { copyText } from '/@/utils/clipboard';
 
 const isLoading = ref(false);
 const isCreating = ref(false);
+const copyingKeyId = ref<string | null>(null);
 const keys = ref<IApiKeySummary[]>([]);
 const keyName = ref('Cursor MCP');
 /** 刚创建的明文，仅本地展示直至关闭；也用于生成安装提示词 */
@@ -21,14 +28,10 @@ const apiBase = computed(() => {
   return 'https://cv-api.sloan.dpdns.org';
 });
 
-const activeKeys = computed(() => keys.value.filter((k) => !k.is_revoked));
-const revokedKeys = computed(() => keys.value.filter((k) => k.is_revoked));
-
 const hasInstallToken = computed(() => Boolean(freshlyCreated.value?.api_key));
 
 /** 贴进 Cursor / Claude 等 Agent 的安装提示词 */
-const installPrompt = computed(() => {
-  const token = freshlyCreated.value?.api_key || '';
+function buildInstallPrompt(token: string): string {
   return `请帮我在当前 AI 客户端中全局安装并启用 CV Builder MCP（用于读写我的在线简历）。
 
 【必须完成】
@@ -57,7 +60,9 @@ const installPrompt = computed(() => {
 - CV_API_TOKEN 是我的私密密钥，不要提交到 git，不要发到公开场合。
 - 不要改成其他包名或本地 tsx 路径。
 - 只改 MCP 配置，不要改我的业务代码（除非我另行要求）。`;
-});
+}
+
+const installPrompt = computed(() => buildInstallPrompt(freshlyCreated.value?.api_key || ''));
 
 /** 已装过 MCP 时，贴给 Agent 拉取最新包并重启 */
 const updatePrompt = computed(() => {
@@ -151,7 +156,7 @@ async function handleCreate() {
 async function handleRevoke(item: IApiKeySummary) {
   try {
     await ElMessageBox.confirm(
-      `吊销后使用 ${item.key_prefix} 的 MCP 将立即失效，确定？`,
+      `吊销后使用 ${item.key_prefix} 的 MCP 将立即失效，且不会保留历史记录，确定？`,
       '吊销 API Key',
       { type: 'warning', confirmButtonText: '吊销', cancelButtonText: '取消' }
     );
@@ -175,6 +180,62 @@ async function handleCopy(text: string, label: string) {
   const ok = await copyText(text);
   if (ok) ElMessage.success(`${label}已复制`);
   else ElMessage.error('复制失败，请手动选择文本');
+}
+
+function getApiErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  const value = error as {
+    code?: string;
+    response?: { data?: { code?: string } };
+  };
+  return value.response?.data?.code ?? value.code;
+}
+
+async function confirmKeyRotation(item: IApiKeySummary): Promise<boolean> {
+  try {
+    await ElMessageBox.confirm(
+      `Key ${item.key_prefix} 无法恢复原文。继续将生成替代 Key，原 Key 会立即失效，确定？`,
+      '轮换并复制安装提示词',
+      { type: 'warning', confirmButtonText: '轮换并复制', cancelButtonText: '取消' }
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function handleCopyKeyInstallPrompt(item: IApiKeySummary) {
+  if (copyingKeyId.value) return;
+
+  copyingKeyId.value = item.api_key_id;
+  try {
+    let res;
+    if (!item.can_copy) {
+      if (!(await confirmKeyRotation(item))) return;
+      res = await rotateApiKeyApi(item.api_key_id);
+      await loadKeys();
+    } else {
+      try {
+        res = await getApiKeyApi(item.api_key_id);
+      } catch (error) {
+        if (getApiErrorCode(error) !== 'USER_APIKEY_rotationRequired') return;
+        if (!(await confirmKeyRotation(item))) return;
+        res = await rotateApiKeyApi(item.api_key_id);
+        await loadKeys();
+      }
+    }
+
+    const token = res.data?.api_key;
+    if (!token) {
+      ElMessage.error(res.message || '获取 API Key 失败');
+      return;
+    }
+    await handleCopy(buildInstallPrompt(token), '安装提示词');
+  } catch {
+    // 错误提示由 request 拦截器处理
+  } finally {
+    copyingKeyId.value = null;
+  }
 }
 
 async function handleCopyInstallPrompt() {
@@ -214,7 +275,7 @@ onMounted(() => {
     <section class="block">
       <div class="block-head">
         <h3>1. 创建 API Key</h3>
-        <span class="meta">有效 {{ activeKeys.length }} / 10</span>
+        <span class="meta">有效 {{ keys.length }} / 10</span>
       </div>
 
       <div class="create-row">
@@ -223,7 +284,7 @@ onMounted(() => {
       </div>
 
       <div v-if="freshlyCreated" class="secret-box">
-        <p class="secret-title">明文仅显示一次；复制提示词时会自动带上此密钥</p>
+        <p class="secret-title">可立即复制；收起后仍可从下方列表复制安装提示词</p>
         <el-input :model-value="freshlyCreated.api_key" readonly type="textarea" :rows="2" />
         <div class="secret-actions">
           <el-button type="primary" @click="handleCopy(freshlyCreated.api_key, 'API Key')">
@@ -233,31 +294,29 @@ onMounted(() => {
         </div>
       </div>
 
-      <ul v-if="activeKeys.length" class="key-list">
-        <li v-for="item in activeKeys" :key="item.api_key_id" class="key-item">
+      <ul v-if="keys.length" class="key-list">
+        <li v-for="item in keys" :key="item.api_key_id" class="key-item">
           <div class="key-main">
             <strong>{{ item.name }}</strong>
             <code>{{ item.key_prefix }}</code>
             <span class="time">创建 {{ formatTime(item.created_at) }}</span>
             <span class="time">最近使用 {{ formatTime(item.last_used_at) }}</span>
           </div>
-          <el-button link type="danger" @click="handleRevoke(item)">吊销</el-button>
+          <div class="key-actions">
+            <el-button
+              type="primary"
+              plain
+              :loading="copyingKeyId === item.api_key_id"
+              :disabled="Boolean(copyingKeyId && copyingKeyId !== item.api_key_id)"
+              @click="handleCopyKeyInstallPrompt(item)"
+            >
+              {{ item.can_copy ? '一键复制安装提示词' : '轮换并复制安装提示词' }}
+            </el-button>
+            <el-button link type="danger" @click="handleRevoke(item)">吊销</el-button>
+          </div>
         </li>
       </ul>
       <p v-else class="empty">暂无有效密钥，先创建后再复制安装提示词。</p>
-
-      <details v-if="revokedKeys.length" class="revoked">
-        <summary>已吊销（{{ revokedKeys.length }}）</summary>
-        <ul class="key-list muted">
-          <li v-for="item in revokedKeys" :key="item.api_key_id" class="key-item">
-            <div class="key-main">
-              <strong>{{ item.name }}</strong>
-              <code>{{ item.key_prefix }}</code>
-              <span class="time">吊销于 {{ formatTime(item.revoked_at) }}</span>
-            </div>
-          </li>
-        </ul>
-      </details>
     </section>
 
     <section class="block highlight">
@@ -454,6 +513,18 @@ h3 {
   border: 1px solid #e2e8f0;
 }
 
+.key-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+
+  .el-button + .el-button {
+    margin-left: 0;
+  }
+}
+
 .key-main {
   display: flex;
   flex-direction: column;
@@ -479,21 +550,6 @@ h3 {
   margin: 0;
   font-size: 13px;
   color: #64748b;
-}
-
-.revoked {
-  margin-top: 12px;
-  font-size: 13px;
-  color: #64748b;
-
-  summary {
-    cursor: pointer;
-    user-select: none;
-  }
-}
-
-.muted .key-item {
-  opacity: 0.72;
 }
 
 .config {

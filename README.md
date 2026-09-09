@@ -116,8 +116,8 @@ npm publish --access public   # 需 npm 登录且具备 publish 权限
 不必把提示词塞进 HTML。推荐流程：
 
 1. 打开网页 [MCP 接入](https://cv.sloan.dpdns.org/mcp)（简历首页顶栏，模板中心旁）
-2. 创建 API Key（明文仅显示一次）
-3. **一键复制安装提示词**，粘贴到 Cursor / Claude 等 Agent
+2. 创建 API Key
+3. 在对应 Key 上点 **一键复制安装提示词**，粘贴到 Cursor / Claude 等 Agent；之后可重复复制
 4. Agent 写入全局 MCP（`npx -y @waxilo/cv-mcp`）后即可 `list_resumes` / 改简历
 5. 包有更新时：同一页 **一键复制更新提示词**，让 Agent 清 npx 缓存、拉最新包并重启 MCP
 
@@ -186,6 +186,8 @@ npm publish --access public   # 需 npm 登录且具备 publish 权限
 | 登录 | `/api/auth-service/v1/login` |
 | 创建 API Key | `/api/auth-service/v1/create-api-key` |
 | 列出 API Key | `/api/auth-service/v1/list-api-keys` |
+| 获取 API Key | `/api/auth-service/v1/get-api-key` |
+| 轮换旧 API Key | `/api/auth-service/v1/rotate-api-key` |
 | 吊销 API Key | `/api/auth-service/v1/revoke-api-key` |
 
 请求头：`Authorization: Bearer <JWT 或 cvk_…>`。

@@ -70,7 +70,7 @@ export const templates = sqliteTable('template', {
   isDeleted: integer('is_deleted', { mode: 'boolean' }).notNull().default(false),
 });
 
-/** MCP / 外部工具 API Key；明文仅创建时返回一次 */
+/** MCP / 外部工具 API Key；哈希用于鉴权，密文用于用户按需复制 */
 export const apiKeys = sqliteTable('api_key', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull(),
@@ -79,10 +79,13 @@ export const apiKeys = sqliteTable('api_key', {
   keyPrefix: text('key_prefix').notNull(),
   /** SHA-256(明文) 十六进制 */
   keyHash: text('key_hash').notNull(),
+  /** AES-GCM 密文；旧记录为空，复制前需轮换 */
+  encryptedKey: text('encrypted_key'),
   lastUsedAt: text('last_used_at'),
   createdAt: text('created_at')
     .notNull()
     .default(sql`(datetime('now'))`),
+  /** 滚动部署兼容旧 Worker；记录会由触发器立即删除 */
   revokedAt: text('revoked_at'),
   isRevoked: integer('is_revoked', { mode: 'boolean' }).notNull().default(false),
 });
