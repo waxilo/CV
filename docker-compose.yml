@@ -1,0 +1,50 @@
+# 本机自托管：一个容器同时提供网页（public/）与 /api/*，数据库是共享容器 ../mysql-server。
+#
+#   ../mysql-server/scripts/start.sh   # 先把数据库起起来
+#   ./scripts/db-init.sh               # 一次性：建库建用户 + 建表 + 生成 .env
+#   ./scripts/deploy.sh                # 门禁 → 构建 → 起容器 → 探活
+#   ./scripts/gw-join.sh               # 一次性：把公网域名转进本容器
+#
+# 公网入口走共享网关 ../gw（cloudflared 已带 *.sloan.dpdns.org 通配，由网关上的 nginx
+# 按 Host 分发）：./scripts/gw-join.sh 把 cv.sloan.dpdns.org 指到 cv:8787，
+# 网页与 /api 同源、同一容器。应用自己不开公网端口，也不做 TLS。
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cv:latest
+    container_name: cv
+    restart: unless-stopped
+    env_file: .env
+    # 只绑 127.0.0.1，且只发布一个端口：80/443 归 ../gw（公网域名实际由它应答），
+    # 8787 归 writing-assistant、8788 归 notify-hub、8789 归 cred-broker，
+    # 这里用 8790 是为了本机直连调试不撞车；网关注入的是容器名:8787，不经过这个映射。
+    ports:
+      - "${APP_BIND_ADDR:-127.0.0.1}:${APP_PORT:-8790}:8787"
+    healthcheck:
+      # /health 会真的 SELECT 1（接口活着但连不上库要能被看出来）。
+      # 用 node 而不是 wget/curl：alpine 运行时镜像里只有 node。
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      # 共享 MySQL 的网络：库里的主机名就是 `mysql`。
+      # 声明为 external —— 本项目不拥有这两个网络，也就不会在 down 时把别人的摘掉。
+      - mysql-server_default
+      # 共享公网网关的网络：让它的 nginx 能以 cv:8787 打到本容器。
+      - gw_default
+
+networks:
+  mysql-server_default:
+    external: true
+  gw_default:
+    external: true

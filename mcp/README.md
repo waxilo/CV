@@ -7,7 +7,7 @@ CV Builder 的 MCP Server：在 Cursor / Claude Desktop 里用工具读写简历
 | 变量 | 必填 | 说明 |
 |------|------|------|
 | `CV_API_TOKEN` | 是 | 在网页 **MCP 接入** 创建的 API Key（`cvk_…`） |
-| `CV_API_BASE` | 否 | API 根地址，默认 `https://cv-api.sloan.dpdns.org` |
+| `CV_API_BASE` | 否 | API 根地址，默认 `https://cv.sloan.dpdns.org` |
 
 ## 快速接入
 
@@ -37,7 +37,7 @@ npx clear-npx-cache
       "command": "npx",
       "args": ["-y", "@waxilo/cv-mcp"],
       "env": {
-        "CV_API_BASE": "https://cv-api.sloan.dpdns.org",
+        "CV_API_BASE": "https://cv.sloan.dpdns.org",
         "CV_API_TOKEN": "cvk_你的API_Key"
       }
     }

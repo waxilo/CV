@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
-import { createDb, templates } from '../db';
+import { getDb, templates } from '../db';
+import { config } from '../env';
 import { generateId } from '../utils/jwt';
 import { authMiddleware, type AuthVariables } from '../middleware/auth';
 import {
@@ -103,13 +104,12 @@ function rowToDto(row: typeof templates.$inferSelect, viewerId: string | null): 
 
 async function optionalUserId(c: {
   req: { header: (name: string) => string | undefined };
-  env: Env;
 }): Promise<string | null> {
   const header = c.req.header('Authorization');
   if (!header?.startsWith('Bearer ')) return null;
   try {
     const { verifyToken } = await import('../utils/jwt');
-    const secret = c.env.JWT_SECRET || 'dev-secret-change-me';
+    const secret = config.jwtSecret;
     const user = await verifyToken(header.slice(7), secret);
     return user.sub;
   } catch {
@@ -121,7 +121,7 @@ function invalidParam(message: string) {
   return { success: false, code: 'COMMON_PARAM_invalidRequest', message } as const;
 }
 
-export const templateRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
+export const templateRoutes = new Hono<{ Variables: AuthVariables }>();
 
 /* ============================================================
  * 列表
@@ -129,7 +129,7 @@ export const templateRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
 
 /** POST /api/template-service/v1/list-templates */
 templateRoutes.post('/list-templates', async (c) => {
-  const db = createDb(c.env.DB);
+  const db = getDb();
   const userId = await optionalUserId(c);
 
   // 内置模板来自代码，自定义模板来自 DB
@@ -172,8 +172,9 @@ templateRoutes.post('/create-template', authMiddleware, async (c) => {
   }
 
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
   const id = generateId();
+  const now = new Date().toISOString();
 
   await db.insert(templates).values({
     id,
@@ -185,6 +186,8 @@ templateRoutes.post('/create-template', authMiddleware, async (c) => {
     schemaVersion: configParsed.schemaVersion,
     isBuiltin: false,
     userId: user.sub,
+    createdAt: now,
+    updatedAt: now,
   });
 
   return c.json({
@@ -215,7 +218,7 @@ templateRoutes.post('/update-template', authMiddleware, async (c) => {
   }
 
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
   const rows = await db
     .select()
     .from(templates)
@@ -285,7 +288,7 @@ templateRoutes.post('/delete-template', authMiddleware, async (c) => {
   }
 
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
   const rows = await db
     .select()
     .from(templates)
@@ -331,7 +334,7 @@ templateRoutes.post('/clone-template', authMiddleware, async (c) => {
   }
 
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
 
   // 先看是不是内置模板
   let sourceName: string;
@@ -371,6 +374,7 @@ templateRoutes.post('/clone-template', authMiddleware, async (c) => {
   }
 
   const id = generateId();
+  const now = new Date().toISOString();
   await db.insert(templates).values({
     id,
     name: parsed.data.name || `${sourceName} 副本`,
@@ -381,6 +385,8 @@ templateRoutes.post('/clone-template', authMiddleware, async (c) => {
     schemaVersion: configParsed.schemaVersion,
     isBuiltin: false,
     userId: user.sub,
+    createdAt: now,
+    updatedAt: now,
   });
 
   return c.json({
@@ -408,7 +414,7 @@ templateRoutes.post('/get-detail', async (c) => {
     return c.json({ success: true, code: '0', message: 'Success', data: builtinDto });
   }
 
-  const db = createDb(c.env.DB);
+  const db = getDb();
   const userId = await optionalUserId(c);
   const rows = await db
     .select()

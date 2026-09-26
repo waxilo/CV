@@ -1,6 +1,6 @@
 # CV Builder
 
-模块化简历制作工具：后端 Cloudflare Workers，前端 Vue 3（网页 + Tauri 桌面），并提供 npm MCP 包供 AI Agent 读写简历。
+模块化简历制作工具：后端 Node + Hono + MySQL（一个容器同时提供网页与 API），前端 Vue 3（网页 + Tauri 桌面），并提供 npm MCP 包供 AI Agent 读写简历。
 
 数据模型与编辑交互参考 [Reactive Resume](https://github.com/AmruthPillai/Reactive-Resume)（JSON 化简历结构、分节模块、模板切换）。
 
@@ -9,7 +9,8 @@
 | 用途 | 地址 |
 |------|------|
 | 网页 | https://cv.sloan.dpdns.org/ |
-| API | https://cv-api.sloan.dpdns.org |
+| API | https://cv.sloan.dpdns.org/api（与网页同源、同一容器） |
+| 本机直连 | http://127.0.0.1:8790（同一容器，公网域名经共享网关转发到 cv:8787） |
 | MCP npm | [@waxilo/cv-mcp](https://www.npmjs.com/package/@waxilo/cv-mcp) |
 | 仓库 | https://github.com/waxilo/CV |
 
@@ -17,12 +18,15 @@
 
 ```
 CV/
-├── backend/          # Cloudflare Workers + Hono + D1
+├── backend/          # Node + Hono + mysql2/Drizzle（src/、db/schema.mysql.sql）
 ├── frontend/         # Vue 3 + Element Plus（Web / Tauri）
 ├── mcp/              # MCP Server（发布为 @waxilo/cv-mcp）
 ├── shared/           # 前后端共享代码
 │   └── template-schema/   # 模板配置类型 / 校验 / 迁移 / 内置模板
-└── docs/             # 模板引擎文档
+├── scripts/          # db-init / deploy / gw-join（本机自托管运维）
+├── docs/             # 模板引擎文档
+├── Dockerfile        # 网页构建产物 + API 打进同一个镜像
+└── docker-compose.yml
 ```
 
 ## 功能
@@ -42,28 +46,41 @@ CV/
 - 浏览器打印导出 PDF；导出 HTML（内嵌结构化数据，可再导入）
 - 在线分享预览链接
 - **MCP 接入**：创建 API Key；一键复制**安装** / **更新**提示词；Agent 可通过 MCP 读写简历（推荐先 `duplicate_resume` 再改副本）、调整简历样式（`update_resume_style`）、调整简历模板（`get/update_resume_template`）、创建「我的模板」（`create_my_template` / `save_resume_template_to_center`）
-- 网页部署（Cloudflare Pages）与桌面打包（Tauri）
+- 网页与 API 由同一个容器同源提供（Docker 自托管）；桌面端打包（Tauri）
 
-## 快速开始
+## 部署（本机自托管）
+
+一个容器装下网页与 API，数据库用共享容器 `../mysql-server` 里的 `cv_builder` 库，公网域名由共享网关 `../gw` 按 Host 转进本容器。应用自己不开公网端口、也不做 TLS。
+
+```bash
+../mysql-server/scripts/start.sh   # 1. 先把数据库起起来
+./scripts/db-init.sh               # 2. 一次性：建库建用户 + 建表 + 生成 .env（密钥随机、已存在不重生成）
+./scripts/deploy.sh                # 3. 门禁（typecheck + 模板自检）→ 构建镜像 → 起容器 → 探活
+./scripts/gw-join.sh               # 4. 一次性：把 cv.sloan.dpdns.org 登记到网关（会弹 macOS 管理员授权写 /etc/hosts）
+```
+
+日常只跑 `./scripts/deploy.sh`。看日志与状态：
+
+```bash
+docker compose logs -f app
+docker inspect -f '{{.State.Health.Status}}' cv
+curl -s http://127.0.0.1:8790/health   # {"status":"ok"}；探活会真的 SELECT 1
+```
+
+数据落在 MySQL 的 `cv_builder` 库（唯一副本），备份走 `../mysql-server` 那套；表结构见 `backend/db/schema.mysql.sql`。`resume.data` / `template.config` 是 JSON 列（模板快照带 HTML/CSS，可达 200KB，超过 MySQL 的 TEXT 64KB 上限，所以不用 TEXT）。
+
+## 本地开发
 
 ### 1. 后端
 
 ```bash
 cd backend
 npm install
-npm run db:migrate:local
-npm run dev
+set -a; source ../.env; set +a    # DB_* 与密钥；容器里由 compose 的 env_file 注入
+DB_HOST=127.0.0.1 npm run dev     # 监听 8787
 ```
 
-线上 API：`https://cv-api.sloan.dpdns.org`
-
-部署：
-
-```bash
-cd backend
-npm run db:migrate:remote   # 有新 migration 时
-npm run deploy
-```
+`npm run` 一览：`dev`（打包 + `node --watch`）、`build`、`start`、`typecheck`、`selfcheck`（模板 schema 断言，deploy.sh 的门禁之一）。
 
 ### 2. 前端（Web 开发）
 
@@ -71,25 +88,21 @@ npm run deploy
 cd frontend
 npm install
 npm run dev
-# http://localhost:1420 ，本地 API 经 Vite 代理到 8787
+# http://localhost:1420 ，/api 经 Vite 代理到 127.0.0.1:8787
 ```
 
-### 3. 前端网页部署（Cloudflare Pages）
+想把前端直接打到线上后端而不启本地后端：在 `frontend/.env.local` 里设
+`VITE_DEV_API_TARGET=https://cv.sloan.dpdns.org`（代理换目标，前端代码不用改）。
+
+### 3. 前端网页构建
+
+网页不再是独立部署面：`Dockerfile` 里跑 `npm run build:web`，产物 `frontend/dist` 被复制进镜像的
+`public/`，由同一个 Hono 进程用 `serveStatic` 提供，SPA 回退指向 `index.html`，
+`/api/*` 未匹配的路径返回 JSON 404 而不是 HTML。
 
 ```bash
-cd frontend
-# 生产 API 写在 .env.production
-npm run deploy:web
+cd frontend && npm run build:web   # 只想要静态产物时
 ```
-
-或分步：
-
-```bash
-npm run build:web
-npx wrangler pages deploy dist --project-name=cv-web
-```
-
-构建产物在 `frontend/dist`，也可部署到任意静态托管（Nginx / OSS / GitHub Pages 等）。SPA 回退已配置 `public/_redirects`。
 
 ### 4. 前端（Tauri 桌面）
 
@@ -149,7 +162,7 @@ npm publish --access public   # 需 npm 登录且具备 publish 权限
       "command": "npx",
       "args": ["-y", "@waxilo/cv-mcp"],
       "env": {
-        "CV_API_BASE": "https://cv-api.sloan.dpdns.org",
+        "CV_API_BASE": "https://cv.sloan.dpdns.org",
         "CV_API_TOKEN": "cvk_你的API_Key"
       }
     }
@@ -160,7 +173,7 @@ npm publish --access public   # 需 npm 登录且具备 publish 权限
 | 环境变量 | 说明 |
 |----------|------|
 | `CV_API_TOKEN` | 网页创建的 API Key（`cvk_…`），也可用登录 JWT |
-| `CV_API_BASE` | API 根地址，默认 `https://cv-api.sloan.dpdns.org` |
+| `CV_API_BASE` | API 根地址，默认 `https://cv.sloan.dpdns.org` |
 
 鉴权：简历等接口同时支持 **JWT**（网页登录）与 **API Key**（MCP）。管理 API Key 的接口仅允许网页 JWT。
 
@@ -235,7 +248,7 @@ h2  { color: var(--tpl-primary-color); }
 
 ### 新增内置模板
 
-内置模板不入库，直接在 `shared/template-schema/src/builtin/index.ts` 的 `BUILTIN_TEMPLATES` 里加一项即可 —— 它同时作为模板中心的选项、新建模板的预设起点和语法参考实现。改内置模板不需要写数据库 migration。
+内置模板不入库，直接在 `shared/template-schema/src/builtin/index.ts` 的 `BUILTIN_TEMPLATES` 里加一项即可 —— 它同时作为模板中心的选项、新建模板的预设起点和语法参考实现。改内置模板不需要动数据库（表结构在 `backend/db/schema.mysql.sql`，改它才对 `cv_builder` 库执行一次）。
 
 用户自定义模板走 `template` 表（`POST /api/template-service/v1/create-template`），或在模板设计器里直接写。
 
@@ -252,8 +265,9 @@ h2  { color: var(--tpl-primary-color); }
 
 | 层 | 技术 |
 |----|------|
-| 后端 | Hono、Cloudflare Workers、D1、Drizzle、jose、Zod |
-| 前端 Web | Vue 3、Vite、Pinia、Vue Router、Element Plus、Cloudflare Pages |
+| 后端 | Node 24、Hono、@hono/node-server、MySQL（mysql2）、Drizzle、jose、Zod |
+| 前端 Web | Vue 3、Vite、Pinia、Vue Router、Element Plus |
+| 部署 | Docker Compose（网页 + API 同镜像）、共享 MySQL 容器、共享网关 `../gw`（cloudflared + nginx 按 Host 分发） |
 | MCP | `@waxilo/cv-mcp`（`@modelcontextprotocol/sdk`、stdio / npx） |
 | 共享 | `shared/template-schema`（纯 TS，前后端共用的模板 schema / 校验 / 迁移） |
 | 桌面 | Tauri 2 |

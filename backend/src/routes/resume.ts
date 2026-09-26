@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq, and, desc, or } from 'drizzle-orm';
-import { createDb, resumes, templates } from '../db';
+import { getDb, resumes, templates, type Database } from '../db';
 import { generateId } from '../utils/jwt';
 import { authMiddleware, type AuthVariables } from '../middleware/auth';
 import { createDefaultResumeData, type IResumeData } from '../types/resume';
@@ -47,7 +47,7 @@ const cloneSchema = z.object({
   title: z.string().min(1).max(100).optional(),
 });
 
-export const resumeRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
+export const resumeRoutes = new Hono<{ Variables: AuthVariables }>();
 
 resumeRoutes.use('*', authMiddleware);
 
@@ -56,7 +56,7 @@ resumeRoutes.use('*', authMiddleware);
  * 内置模板不入库，优先从代码查找；否则查用户自有或历史内置库记录。
  */
 async function resolveFullTemplateConfig(
-  db: ReturnType<typeof createDb>,
+  db: Database,
   templateId: string,
   userId: string
 ): Promise<ITemplateConfigV2 | null> {
@@ -94,7 +94,7 @@ resumeRoutes.post('/create-resume', async (c) => {
   }
 
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
   const id = generateId();
   const title = parsed.data.title;
   const slug = parsed.data.slug || `resume-${id.slice(0, 8)}`;
@@ -125,6 +125,8 @@ resumeRoutes.post('/create-resume', async (c) => {
     slug,
     data,
     templateId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   });
 
   return c.json({
@@ -138,7 +140,7 @@ resumeRoutes.post('/create-resume', async (c) => {
 /** POST /api/resume-service/v1/list-resumes */
 resumeRoutes.post('/list-resumes', async (c) => {
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
 
   const rows = await db
     .select({
@@ -188,7 +190,7 @@ resumeRoutes.post('/get-detail', async (c) => {
   }
 
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
 
   const rows = await db
     .select()
@@ -241,7 +243,7 @@ resumeRoutes.post('/update-resume', async (c) => {
   }
 
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
   const { resume_id, title, data, template_id, is_public, is_locked, slug } = parsed.data;
 
   const rows = await db
@@ -384,7 +386,7 @@ resumeRoutes.post('/clone-resume', async (c) => {
   }
 
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
 
   const rows = await db
     .select()
@@ -416,6 +418,7 @@ resumeRoutes.post('/clone-resume', async (c) => {
   }
   cloned.metadata.templateId = source.templateId;
 
+  const now = new Date().toISOString();
   await db.insert(resumes).values({
     id,
     userId: user.sub,
@@ -424,6 +427,8 @@ resumeRoutes.post('/clone-resume', async (c) => {
     data: cloned,
     templateId: source.templateId,
     isLocked: false,
+    createdAt: now,
+    updatedAt: now,
   });
 
   return c.json({
@@ -453,7 +458,7 @@ resumeRoutes.post('/delete-resume', async (c) => {
   }
 
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
 
   const rows = await db
     .select()

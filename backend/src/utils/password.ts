@@ -1,5 +1,5 @@
 /**
- * Web Crypto PBKDF2 密码哈希（Cloudflare Workers 兼容）
+ * Web Crypto PBKDF2 密码哈希（Web Crypto，Node 与浏览器同 API）
  */
 
 const ITERATIONS = 100000;

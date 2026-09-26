@@ -1,5 +1,5 @@
 /**
- * API Key 生成、鉴权哈希与可恢复密文（Cloudflare Workers / Web Crypto）
+ * API Key 生成、鉴权哈希与可恢复密文（Web Crypto：Node 与浏览器同一套 API）
  */
 
 const API_KEY_BYTE_LENGTH = 24;
@@ -25,7 +25,10 @@ function fromBase64Url(value: string): Uint8Array {
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
-async function deriveEncryptionKey(secret: string): Promise<CryptoKey> {
+/** Node 全局 WebCrypto 的 CryptoKey，在只声明了 ES2022 lib 的工程里没有全局名字 */
+type TCryptoKey = Awaited<ReturnType<typeof crypto.subtle.importKey>>;
+
+async function deriveEncryptionKey(secret: string): Promise<TCryptoKey> {
   if (!secret) {
     throw new Error('API_KEY_ENCRYPTION_SECRET 未配置');
   }

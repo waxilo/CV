@@ -1,0 +1,30 @@
+# 构建上下文 = 仓库根。镜像里只需要：backend/src + package*、frontend/src 等源码 + package*、
+# shared/template-schema。其余全部挡在外面 ——
+# 尤其是 node_modules（darwin/arm64 装的东西在 alpine 里跑不起来或白占体积）、
+# .env（DB 密码与 JWT/加密密钥一次都不能进镜像）与本地 git 历史。
+
+.git
+.gitignore
+.claude
+.qoder
+docs
+README.md
+docker-compose.yml
+Dockerfile
+.dockerignore
+.env
+.env.*
+
+node_modules
+**/node_modules
+**/dist
+backend/db/schema.mysql.sql
+
+# Tauri 桌面工程（Rust 源 + 图标）与 mcp 包都不进网页/API 镜像
+frontend/src-tauri
+frontend/.env.local
+mcp
+
+# 本地 SQLite 残留（迁移前的临时库）不进镜像
+*.sqlite
+*.sqlite-journal

@@ -1,7 +1,8 @@
 import { createMiddleware } from 'hono/factory';
 import { HTTPException } from 'hono/http-exception';
 import { and, eq } from 'drizzle-orm';
-import { createDb, apiKeys, users } from '../db';
+import { getDb, apiKeys, users, type Database } from '../db';
+import { config } from '../env';
 import { verifyToken, type IJwtPayload } from '../utils/jwt';
 import { hashApiKey, isApiKeyToken } from '../utils/apiKey';
 
@@ -16,7 +17,7 @@ export type AuthVariables = {
  * 用 API Key 明文解析到用户（并刷新 last_used_at）。
  */
 async function resolveUserFromApiKey(
-  db: ReturnType<typeof createDb>,
+  db: Database,
   token: string
 ): Promise<IJwtPayload | null> {
   const keyHash = await hashApiKey(token);
@@ -36,7 +37,7 @@ async function resolveUserFromApiKey(
   const row = rows[0];
   if (!row || row.isDeleted) return null;
 
-  void db
+  await db
     .update(apiKeys)
     .set({ lastUsedAt: new Date().toISOString() })
     .where(eq(apiKeys.id, row.keyId));
@@ -54,7 +55,6 @@ async function resolveUserFromApiKey(
  * - cvk_…：API Key → 关联账号，可读写该用户简历
  */
 export const authMiddleware = createMiddleware<{
-  Bindings: Env;
   Variables: AuthVariables;
 }>(async (c, next) => {
   const header = c.req.header('Authorization');
@@ -68,7 +68,7 @@ export const authMiddleware = createMiddleware<{
   }
 
   if (isApiKeyToken(token)) {
-    const db = createDb(c.env.DB);
+    const db = getDb();
     const user = await resolveUserFromApiKey(db, token);
     if (!user) {
       throw new HTTPException(401, { message: 'API Key 无效或已吊销' });
@@ -79,7 +79,7 @@ export const authMiddleware = createMiddleware<{
     return;
   }
 
-  const secret = c.env.JWT_SECRET || 'dev-secret-change-me';
+  const secret = config.jwtSecret;
   try {
     const user = await verifyToken(token, secret);
     c.set('user', user);
@@ -94,7 +94,6 @@ export const authMiddleware = createMiddleware<{
  * 仅允许网页 JWT（管理 API Key 等敏感操作）。
  */
 export const jwtOnlyMiddleware = createMiddleware<{
-  Bindings: Env;
   Variables: AuthVariables;
 }>(async (c, next) => {
   const header = c.req.header('Authorization');
@@ -111,7 +110,7 @@ export const jwtOnlyMiddleware = createMiddleware<{
     throw new HTTPException(403, { message: '请使用网页登录管理 API Key' });
   }
 
-  const secret = c.env.JWT_SECRET || 'dev-secret-change-me';
+  const secret = config.jwtSecret;
   try {
     const user = await verifyToken(token, secret);
     c.set('user', user);

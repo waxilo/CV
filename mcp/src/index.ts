@@ -4,7 +4,7 @@
  *
  * 环境变量：
  * - CV_API_TOKEN（或 CV_TOKEN）：网页「MCP 接入」页创建的 API Key（cvk_…）或登录 JWT，必填
- * - CV_API_BASE：API 根地址，默认 https://cv-api.sloan.dpdns.org
+ * - CV_API_BASE：API 根地址，默认 https://cv.sloan.dpdns.org
  *
  * 注意：不要向 stdout 打日志，会破坏 MCP JSON-RPC。
  */

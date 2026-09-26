@@ -1,7 +1,6 @@
 node_modules/
 .DS_Store
 *.log
-.wrangler/
 dist/
 frontend/dist/
 frontend/src-tauri/target/
@@ -9,5 +8,5 @@ frontend/src-tauri/target/
 frontend/src-tauri/gen/
 .env
 .env.local
-.dev.vars
 *.local
+!.env.example

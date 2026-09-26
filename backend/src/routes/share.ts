@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
-import { createDb, resumes, templates } from '../db';
+import { getDb, resumes, templates, type Database } from '../db';
 import { getBuiltinTemplate, normalizeForRead } from '../template/schema';
 import type { IResumeData } from '../types/resume';
 
@@ -10,14 +10,14 @@ import type { IResumeData } from '../types/resume';
  * 通过 share_token 访问；每次开启分享会轮换令牌，旧链接立即失效。
  * 读的是库里最新 data，简历保存后分享页自动更新。
  */
-export const shareRoutes = new Hono<{ Bindings: Env }>();
+export const shareRoutes = new Hono();
 
 const getSharedSchema = z.object({
   share_token: z.string().uuid(),
 });
 
 async function resolveTemplateConfig(
-  db: ReturnType<typeof createDb>,
+  db: Database,
   templateId: string,
   resumeData?: IResumeData
 ): Promise<unknown> {
@@ -50,7 +50,7 @@ shareRoutes.post('/get-resume', async (c) => {
     );
   }
 
-  const db = createDb(c.env.DB);
+  const db = getDb();
   const rows = await db
     .select()
     .from(resumes)

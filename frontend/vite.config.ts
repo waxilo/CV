@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, ['VITE_', 'TAURI_']);
 
   /*
-   * dev server 里 /api 的转发目标。默认打本地 wrangler dev；
+   * dev server 里 /api 的转发目标。默认打本地后端（cd ../backend && npm run dev）；
    * 在 .env.local 里设 VITE_DEV_API_TARGET 即可整体切到线上后端，
    * 前端代码不用改（仍然发相对路径，浏览器视角同源，不触发 CORS）。
    */

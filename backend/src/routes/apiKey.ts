@@ -6,7 +6,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { and, desc, eq } from 'drizzle-orm';
-import { createDb, apiKeys } from '../db';
+import { getDb, apiKeys } from '../db';
+import { config } from '../env';
 import { generateId } from '../utils/jwt';
 import {
   decryptApiKey,
@@ -31,7 +32,7 @@ const apiKeyIdSchema = z.object({
   api_key_id: z.string().uuid('api_key_id 无效'),
 });
 
-export const apiKeyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
+export const apiKeyRoutes = new Hono<{ Variables: AuthVariables }>();
 
 async function recoverApiKey(
   encryptedKey: string,
@@ -75,7 +76,7 @@ apiKeyRoutes.post('/create-api-key', async (c) => {
   }
 
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
 
   const active = await db
     .select({ id: apiKeys.id })
@@ -97,7 +98,7 @@ apiKeyRoutes.post('/create-api-key', async (c) => {
   const { plaintext, prefix } = generateApiKeyPlaintext();
   const [keyHash, encryptedKey] = await Promise.all([
     hashApiKey(plaintext),
-    encryptApiKey(plaintext, c.env.API_KEY_ENCRYPTION_SECRET),
+    encryptApiKey(plaintext, config.apiKeyEncryptionSecret),
   ]);
   const createdAt = new Date().toISOString();
 
@@ -129,7 +130,7 @@ apiKeyRoutes.post('/create-api-key', async (c) => {
 /** POST /api/auth-service/v1/list-api-keys */
 apiKeyRoutes.post('/list-api-keys', async (c) => {
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
 
   const rows = await db
     .select({
@@ -175,7 +176,7 @@ apiKeyRoutes.post('/get-api-key', async (c) => {
   }
 
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
   const rows = await db
     .select({ encryptedKey: apiKeys.encryptedKey, keyHash: apiKeys.keyHash })
     .from(apiKeys)
@@ -199,8 +200,8 @@ apiKeyRoutes.post('/get-api-key', async (c) => {
   const recovered = await recoverApiKey(
     row.encryptedKey,
     row.keyHash,
-    c.env.API_KEY_ENCRYPTION_SECRET,
-    c.env.API_KEY_ENCRYPTION_SECRET_PREVIOUS
+    config.apiKeyEncryptionSecret,
+    config.apiKeyEncryptionSecretPrevious
   );
   if (!recovered) {
     return c.json(
@@ -216,7 +217,7 @@ apiKeyRoutes.post('/get-api-key', async (c) => {
   if (recovered.usedPreviousSecret) {
     const encryptedKey = await encryptApiKey(
       recovered.plaintext,
-      c.env.API_KEY_ENCRYPTION_SECRET
+      config.apiKeyEncryptionSecret
     );
     await db
       .update(apiKeys)
@@ -255,7 +256,7 @@ apiKeyRoutes.post('/rotate-api-key', async (c) => {
   }
 
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
   const rows = await db
     .select({ keyHash: apiKeys.keyHash })
     .from(apiKeys)
@@ -273,9 +274,9 @@ apiKeyRoutes.post('/rotate-api-key', async (c) => {
   const { plaintext, prefix } = generateApiKeyPlaintext();
   const [keyHash, encryptedKey] = await Promise.all([
     hashApiKey(plaintext),
-    encryptApiKey(plaintext, c.env.API_KEY_ENCRYPTION_SECRET),
+    encryptApiKey(plaintext, config.apiKeyEncryptionSecret),
   ]);
-  const updated = await db
+  const [rotated] = await db
     .update(apiKeys)
     .set({ keyPrefix: prefix, keyHash, encryptedKey, lastUsedAt: null })
     .where(
@@ -284,10 +285,9 @@ apiKeyRoutes.post('/rotate-api-key', async (c) => {
         eq(apiKeys.userId, user.sub),
         eq(apiKeys.keyHash, row.keyHash)
       )
-    )
-    .returning({ id: apiKeys.id });
+    );
 
-  if (!updated[0]) {
+  if (!rotated?.affectedRows) {
     return c.json(
       { success: false, code: 'USER_APIKEY_conflict', message: 'API Key 已发生变化，请刷新后重试' },
       409
@@ -319,15 +319,14 @@ apiKeyRoutes.post('/revoke-api-key', async (c) => {
   }
 
   const user = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
   const { api_key_id } = parsed.data;
 
-  const deleted = await db
+  const [removed] = await db
     .delete(apiKeys)
-    .where(and(eq(apiKeys.id, api_key_id), eq(apiKeys.userId, user.sub)))
-    .returning({ id: apiKeys.id });
+    .where(and(eq(apiKeys.id, api_key_id), eq(apiKeys.userId, user.sub)));
 
-  if (!deleted[0]) {
+  if (!removed?.affectedRows) {
     return c.json(
       { success: false, code: 'USER_APIKEY_notFound', message: 'API Key 不存在' },
       404

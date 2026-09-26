@@ -25,7 +25,7 @@ const freshlyCreated = ref<IApiKeyCreated | null>(null);
 const apiBase = computed(() => {
   const fromEnv = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
   if (fromEnv) return fromEnv;
-  return 'https://cv-api.sloan.dpdns.org';
+  return 'https://cv.sloan.dpdns.org';
 });
 
 const hasInstallToken = computed(() => Boolean(freshlyCreated.value?.api_key));

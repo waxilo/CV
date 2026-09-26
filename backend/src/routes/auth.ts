@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
-import { createDb, users } from '../db';
+import { getDb, users } from '../db';
+import { config } from '../env';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { signToken, generateId } from '../utils/jwt';
 import { authMiddleware, type AuthVariables } from '../middleware/auth';
@@ -22,7 +23,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-export const authRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
+export const authRoutes = new Hono<{ Variables: AuthVariables }>();
 
 /** POST /api/auth-service/v1/register */
 authRoutes.post('/register', async (c) => {
@@ -36,7 +37,7 @@ authRoutes.post('/register', async (c) => {
   }
 
   const { email, username, password, display_name } = parsed.data;
-  const db = createDb(c.env.DB);
+  const db = getDb();
 
   const existing = await db
     .select()
@@ -66,6 +67,7 @@ authRoutes.post('/register', async (c) => {
 
   const id = generateId();
   const passwordHash = await hashPassword(password);
+  const now = new Date().toISOString();
 
   await db.insert(users).values({
     id,
@@ -73,13 +75,15 @@ authRoutes.post('/register', async (c) => {
     username,
     passwordHash,
     displayName: display_name || username,
+    createdAt: now,
+    updatedAt: now,
   });
 
-  const secret = c.env.JWT_SECRET || 'dev-secret-change-me';
+  const secret = config.jwtSecret;
   const token = await signToken(
     { sub: id, email, username },
     secret,
-    c.env.JWT_EXPIRES_IN || '7d'
+    config.jwtExpiresIn
   );
 
   return c.json({
@@ -105,7 +109,7 @@ authRoutes.post('/login', async (c) => {
   }
 
   const { email, password } = parsed.data;
-  const db = createDb(c.env.DB);
+  const db = getDb();
 
   const rows = await db
     .select()
@@ -121,11 +125,11 @@ authRoutes.post('/login', async (c) => {
     );
   }
 
-  const secret = c.env.JWT_SECRET || 'dev-secret-change-me';
+  const secret = config.jwtSecret;
   const token = await signToken(
     { sub: user.id, email: user.email, username: user.username },
     secret,
-    c.env.JWT_EXPIRES_IN || '7d'
+    config.jwtExpiresIn
   );
 
   return c.json({
@@ -148,7 +152,7 @@ authRoutes.post('/login', async (c) => {
 /** POST /api/auth-service/v1/get-profile */
 authRoutes.post('/get-profile', authMiddleware, async (c) => {
   const authUser = c.get('user');
-  const db = createDb(c.env.DB);
+  const db = getDb();
 
   const rows = await db
     .select()

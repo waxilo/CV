@@ -8,7 +8,7 @@ export interface IMcpConfig {
   apiToken: string;
 }
 
-const DEFAULT_API_BASE = 'https://cv-api.sloan.dpdns.org';
+const DEFAULT_API_BASE = 'https://cv.sloan.dpdns.org';
 
 /**
  * 解析并校验运行所需环境变量。

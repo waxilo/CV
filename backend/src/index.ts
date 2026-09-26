@@ -1,14 +1,17 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
+import { serveStatic } from '@hono/node-server/serve-static';
 import { authRoutes } from './routes/auth';
 import { apiKeyRoutes } from './routes/apiKey';
 import { resumeRoutes } from './routes/resume';
 import { shareRoutes } from './routes/share';
 import { templateRoutes } from './routes/template';
-import type { AuthVariables } from './middleware/auth';
+import { type AuthVariables } from './middleware/auth';
+import { getDb } from './db';
+import { config } from './env';
 
-const app = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
+const app = new Hono<{ Variables: AuthVariables }>();
 
 app.use('*', logger());
 app.use(
@@ -22,16 +25,15 @@ app.use(
   })
 );
 
-app.get('/', (c) =>
-  c.json({
-    success: true,
-    code: '0',
-    message: 'CV Builder API',
-    data: { name: c.env.APP_NAME || 'CV Builder', version: '1.0.0' },
-  })
-);
-
-app.get('/health', (c) => c.json({ success: true, code: '0', message: 'ok' }));
+// /health 真的探库：进程活着但连不上 MySQL 要能被看出来（compose 健康检查用它）。
+app.get('/health', async (c) => {
+  try {
+    await getDb().execute('SELECT 1');
+    return c.json({ success: true, code: '0', message: 'ok' });
+  } catch {
+    return c.json({ success: false, code: 'COMMON_SYSTEM_dbUnreachable', message: 'db unreachable' }, 503);
+  }
+});
 
 app.route('/api/auth-service/v1', authRoutes);
 app.route('/api/auth-service/v1', apiKeyRoutes);
@@ -39,9 +41,15 @@ app.route('/api/share-service/v1', shareRoutes);
 app.route('/api/resume-service/v1', resumeRoutes);
 app.route('/api/template-service/v1', templateRoutes);
 
-app.notFound((c) =>
-  c.json({ success: false, code: 'COMMON_SYSTEM_notFound', message: '接口不存在' }, 404)
-);
+// 前端构建产物（容器内 public/）：静态文件优先，SPA 路由回退 index.html。
+// /api 前缀不参与静态与回退：接口全部是 POST，GET /api/* 一律 JSON 404。
+const notFoundJson = (c: Context) =>
+  c.json({ success: false, code: 'COMMON_SYSTEM_notFound', message: '接口不存在' }, 404);
+app.get('/api/*', notFoundJson);
+app.get('*', serveStatic({ root: config.staticDir }));
+app.get('*', serveStatic({ path: `${config.staticDir}/index.html` }));
+
+app.notFound(notFoundJson);
 
 app.onError((err, c) => {
   console.error(err);
