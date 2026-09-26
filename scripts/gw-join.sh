@@ -5,7 +5,7 @@
 #   ./scripts/gw-join.sh <网页域名>
 #
 # CV 只有一个公网域名，网页与 /api 由同一容器同源提供：
-#   cv.sloan.dpdns.org → cv:8787
+#   cv.sloan.dpdns.org → cv:80
 #
 # 隧道带的是 *.sloan.dpdns.org 通配记录，Cloudflare 侧零操作，只在网关加一个 server 块。
 # 撤销公网访问：删掉 ../gw/conf.d/cv.conf 并 reload（未登记的 Host 会被网关 404）。
@@ -15,7 +15,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 WEB_HOST="${1:-cv.sloan.dpdns.org}"
-CONTAINER_TARGET="cv:8787"   # 必须是容器名：网关容器里的 127.0.0.1 是它自己
+CONTAINER_TARGET="cv:80"   # 必须是容器名：网关容器里的 127.0.0.1 是它自己
 GW_DIR="${GW_DIR:-$ROOT_DIR/../gw}"
 NETWORK=gw_default
 

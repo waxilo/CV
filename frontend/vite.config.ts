@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
    * 在 .env.local 里设 VITE_DEV_API_TARGET 即可整体切到线上后端，
    * 前端代码不用改（仍然发相对路径，浏览器视角同源，不触发 CORS）。
    */
-  const devApiTarget = env.VITE_DEV_API_TARGET || 'http://127.0.0.1:8787';
+  const devApiTarget = env.VITE_DEV_API_TARGET || 'http://127.0.0.1:7004';
 
   return {
     plugins: [

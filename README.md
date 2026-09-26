@@ -10,7 +10,7 @@
 |------|------|
 | 网页 | https://cv.sloan.dpdns.org/ |
 | API | https://cv.sloan.dpdns.org/api（与网页同源、同一容器） |
-| 本机直连 | http://127.0.0.1:8790（同一容器，公网域名经共享网关转发到 cv:8787） |
+| 本机直连 | http://127.0.0.1:7004（同一容器，公网域名经共享网关转发到 cv:80） |
 | MCP npm | [@waxilo/cv-mcp](https://www.npmjs.com/package/@waxilo/cv-mcp) |
 | 仓库 | https://github.com/waxilo/CV |
 
@@ -64,7 +64,7 @@ CV/
 ```bash
 docker compose logs -f app
 docker inspect -f '{{.State.Health.Status}}' cv
-curl -s http://127.0.0.1:8790/health   # {"status":"ok"}；探活会真的 SELECT 1
+curl -s http://127.0.0.1:7004/health   # {"status":"ok"}；探活会真的 SELECT 1
 ```
 
 数据落在 MySQL 的 `cv_builder` 库（唯一副本），备份走 `../mysql-server` 那套；表结构见 `backend/db/schema.mysql.sql`。`resume.data` / `template.config` 是 JSON 列（模板快照带 HTML/CSS，可达 200KB，超过 MySQL 的 TEXT 64KB 上限，所以不用 TEXT）。
@@ -88,7 +88,7 @@ DB_HOST=127.0.0.1 npm run dev     # 监听 8787
 cd frontend
 npm install
 npm run dev
-# http://localhost:1420 ，/api 经 Vite 代理到 127.0.0.1:8787
+# http://localhost:1420 ，/api 经 Vite 代理到 127.0.0.1:7004
 ```
 
 想把前端直接打到线上后端而不启本地后端：在 `frontend/.env.local` 里设

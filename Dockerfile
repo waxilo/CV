@@ -41,7 +41,7 @@ COPY --from=web /repo/frontend/dist ./public
 # 不 chown：代码与依赖归 root 只读，进程（node 用户）写不到自己的二进制里去，
 # 运行时唯一需要写的地方是 MySQL。
 USER node
-EXPOSE 8787
+EXPOSE 80
 
 # 不用 docker --init / tini：src/server.ts 自己装了 SIGTERM 处理
 # （先停接单、等在途请求收尾再关连接池），node 作为 PID 1 收到 docker stop 就走这条路。

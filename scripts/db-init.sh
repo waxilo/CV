@@ -51,7 +51,7 @@ DB_PASSWORD=$(password 24)
 JWT_SECRET=$(password 48)
 API_KEY_ENCRYPTION_SECRET=$(password 48)
 APP_BIND_ADDR=127.0.0.1
-APP_PORT=8790
+APP_PORT=7004
 EOF
   chmod 600 .env
 fi
