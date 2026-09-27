@@ -2,13 +2,16 @@ import axios, { type AxiosInstance, type AxiosError } from 'axios';
 import { ElMessage } from 'element-plus';
 import type { IApiResponse } from '/@/types/resume';
 
-const API_BASE = import.meta.env.VITE_API_BASE || '';
-
 function detectPlatform(): string {
   const w = window as Window & { __TAURI_INTERNALS__?: unknown; __TAURI__?: unknown };
   if (w.__TAURI_INTERNALS__ || w.__TAURI__) return 'desktop';
   return 'web';
 }
+
+// 网页构建留空走同源 /api；桌面端没有同源，打 cv 容器在本机发布的回环端口。
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  (detectPlatform() === 'desktop' ? 'http://127.0.0.1:7004' : '');
 
 const request: AxiosInstance = axios.create({
   baseURL: API_BASE,

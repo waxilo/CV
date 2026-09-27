@@ -25,7 +25,11 @@ const freshlyCreated = ref<IApiKeyCreated | null>(null);
 const apiBase = computed(() => {
   const fromEnv = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
   if (fromEnv) return fromEnv;
-  return 'https://cv.sloan.dpdns.org';
+  // 去域名化：网页下用当前 origin（用哪个域名打开就复制哪个）；
+  // Tauri 桌面构建（tauri:// origin）或无 window 时回落到容器发布的本机端口。
+  const origin = typeof window === 'undefined' ? '' : window.location.origin;
+  if (/^https?:\/\//.test(origin)) return origin;
+  return 'http://127.0.0.1:7004';
 });
 
 const hasInstallToken = computed(() => Boolean(freshlyCreated.value?.api_key));

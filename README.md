@@ -162,7 +162,7 @@ npm publish --access public   # 需 npm 登录且具备 publish 权限
       "command": "npx",
       "args": ["-y", "@waxilo/cv-mcp"],
       "env": {
-        "CV_API_BASE": "https://cv.sloan.dpdns.org",
+        "CV_API_BASE": "http://127.0.0.1:7004",
         "CV_API_TOKEN": "cvk_你的API_Key"
       }
     }
@@ -173,7 +173,7 @@ npm publish --access public   # 需 npm 登录且具备 publish 权限
 | 环境变量 | 说明 |
 |----------|------|
 | `CV_API_TOKEN` | 网页创建的 API Key（`cvk_…`），也可用登录 JWT |
-| `CV_API_BASE` | API 根地址，默认 `https://cv.sloan.dpdns.org` |
+| `CV_API_BASE` | API 根地址，默认 `http://127.0.0.1:7004`（cv 容器在本机发布的回环端口；公网域名只归网关管） |
 
 鉴权：简历等接口同时支持 **JWT**（网页登录）与 **API Key**（MCP）。管理 API Key 的接口仅允许网页 JWT。
 
