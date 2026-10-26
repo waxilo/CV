@@ -1,6 +1,6 @@
 # CV Builder
 
-模块化简历制作工具：后端 Node + Hono + MySQL（一个容器同时提供网页与 API），前端 Vue 3（网页 + Tauri 桌面），并提供 npm MCP 包供 AI Agent 读写简历。
+模块化简历制作工具：后端 Node + Hono + MySQL（一个容器同时提供网页与 API），前端 Vue 3（网页 + Tauri 桌面），并提供单文件 MCP 脚本（GitHub Release 分发）供 AI Agent 读写简历。
 
 数据模型与编辑交互参考 [Reactive Resume](https://github.com/AmruthPillai/Reactive-Resume)（JSON 化简历结构、分节模块、模板切换）。
 
@@ -11,7 +11,7 @@
 | 网页 | https://cv.sloan.dpdns.org/ |
 | API | https://cv.sloan.dpdns.org/api（与网页同源、同一容器） |
 | 本机直连 | http://127.0.0.1:7004（同一容器，公网域名经共享网关转发到 cv:80） |
-| MCP npm | [@waxilo/cv-mcp](https://www.npmjs.com/package/@waxilo/cv-mcp) |
+| MCP 下载 | [GitHub Release · cv-mcp.mjs](https://github.com/waxilo/CV/releases/latest) |
 | 仓库 | https://github.com/waxilo/CV |
 
 ## 目录结构
@@ -20,7 +20,8 @@
 CV/
 ├── backend/          # Node + Hono + mysql2/Drizzle（src/、db/schema.mysql.sql）
 ├── frontend/         # Vue 3 + Element Plus（Web / Tauri）
-├── mcp/              # MCP Server（发布为 @waxilo/cv-mcp）
+├── mcp/              # MCP Server（打包为单文件 cv-mcp.mjs，GitHub Release 分发）
+├── .github/workflows/ # mcp-release.yml：推 mcp-v* tag 自动发布 MCP
 ├── shared/           # 前后端共享代码
 │   └── template-schema/   # 模板配置类型 / 校验 / 迁移 / 内置模板
 ├── scripts/          # db-init / deploy / gw-join（本机自托管运维）
@@ -115,14 +116,16 @@ npm run tauri:dev
 npm run tauri:build                 # 使用 .env.production 中的 API
 ```
 
-### 5. MCP 包（本地开发 / 发布）
+### 5. MCP（本地开发 / 发版）
 
 ```bash
 cd mcp
 npm install
-npm run build
-npm publish --access public   # 需 npm 登录且具备 publish 权限
+npm run build      # esbuild 打包为 dist/cv-mcp.mjs
 ```
+
+发版：改 `mcp/package.json` 的 `version` 并推到 `main`，再推送同版本 tag（如 `git tag mcp-v0.2.0 && git push origin mcp-v0.2.0`），
+`.github/workflows/mcp-release.yml` 会构建、冒烟测试并发布到 GitHub Release（标记为 latest）。
 
 ## MCP：用 AI 改简历
 
@@ -131,8 +134,8 @@ npm publish --access public   # 需 npm 登录且具备 publish 权限
 1. 打开网页 [MCP 接入](https://cv.sloan.dpdns.org/mcp)（简历首页顶栏，模板中心旁）
 2. 创建 API Key
 3. 在对应 Key 上点 **一键复制安装提示词**，粘贴到 Cursor / Claude 等 Agent；之后可重复复制
-4. Agent 写入全局 MCP（`npx -y @waxilo/cv-mcp`）后即可 `list_resumes` / 改简历
-5. 包有更新时：同一页 **一键复制更新提示词**，让 Agent 清 npx 缓存、拉最新包并重启 MCP
+4. Agent 从 GitHub Release 下载 `cv-mcp.mjs` 到 `~/.cv-mcp/`，写入全局 MCP（`node <脚本绝对路径>`，需 Node.js 18+）后即可 `list_resumes` / 改简历
+5. MCP 有新版本时：同一页 **一键复制更新提示词**，让 Agent 重新下载覆盖脚本并重启 MCP
 
 推荐改简历流程：空账号用 **`create_resume`**（可带完整 `data` 迁移旧简历）；已有简历则 `list_resumes` → **`duplicate_resume`**（得到副本）→ 再 `update_*` 只改副本，降低覆盖原件的风险。锁定简历也可复制；副本默认未锁定。
 
@@ -140,27 +143,27 @@ npm publish --access public   # 需 npm 登录且具备 publish 权限
 
 ### 更新已安装的 MCP
 
-已通过 `npx -y @waxilo/cv-mcp` 接入时，一般**不必改配置**，只需拉最新包：
+更新就是重新下载覆盖 `cv-mcp.mjs`，配置不用改：
 
 1. 打开 [MCP 接入](https://cv.sloan.dpdns.org/mcp) → **一键复制更新提示词** → 粘贴给 Agent  
    或手动执行：
    ```bash
-   npx clear-npx-cache
-   # 或 npm cache clean --force
+   curl -fL -o ~/.cv-mcp/cv-mcp.mjs https://github.com/waxilo/CV/releases/latest/download/cv-mcp.mjs
    ```
 2. 在 Cursor：**Settings → MCP** 关闭再打开 `cv-builder`，或 Reload MCP
 3. 用 `list_resumes` 验证；密钥未吊销则无需重建 API Key
 
-也可把 args 钉死版本（发新版后改号再重启）：`"args": ["-y", "@waxilo/cv-mcp@0.1.2"]`。
+旧配置仍是 `npx -y @waxilo/cv-mcp`（npm 包已停止更新）的，更新提示词会让 Agent 一并改成脚本方式。
+想钉死版本时，改从 `releases/download/mcp-v<版本>/cv-mcp.mjs` 下载。
 
-手动配置示例：
+手动配置示例（`args` 填脚本绝对路径，Windows 写成 `C:\\Users\\你\\.cv-mcp\\cv-mcp.mjs`）：
 
 ```json
 {
   "mcpServers": {
     "cv-builder": {
-      "command": "npx",
-      "args": ["-y", "@waxilo/cv-mcp"],
+      "command": "node",
+      "args": ["/Users/你的用户名/.cv-mcp/cv-mcp.mjs"],
       "env": {
         "CV_API_BASE": "http://127.0.0.1:7004",
         "CV_API_TOKEN": "cvk_你的API_Key"
@@ -268,6 +271,6 @@ h2  { color: var(--tpl-primary-color); }
 | 后端 | Node 24、Hono、@hono/node-server、MySQL（mysql2）、Drizzle、jose、Zod |
 | 前端 Web | Vue 3、Vite、Pinia、Vue Router、Element Plus |
 | 部署 | Docker Compose（网页 + API 同镜像）、共享 MySQL 容器、共享网关 `../gw`（cloudflared + nginx 按 Host 分发） |
-| MCP | `@waxilo/cv-mcp`（`@modelcontextprotocol/sdk`、stdio / npx） |
+| MCP | `@modelcontextprotocol/sdk`、stdio；esbuild 打包单文件 `cv-mcp.mjs`，GitHub Release 分发 |
 | 共享 | `shared/template-schema`（纯 TS，前后端共用的模板 schema / 校验 / 迁移） |
 | 桌面 | Tauri 2 |

@@ -14,6 +14,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { loadConfig } from './config.js';
 import { CvApiClient } from './api/client.js';
 import { registerTools } from './tools/register.js';
+import { MCP_VERSION } from './version.js';
 
 const INSTRUCTIONS = `你正在通过 MCP 编辑 CV Builder 简历。
 
@@ -72,7 +73,7 @@ async function main(): Promise<void> {
   const server = new McpServer(
     {
       name: 'cv-builder',
-      version: '0.1.4',
+      version: MCP_VERSION,
     },
     {
       instructions: INSTRUCTIONS,

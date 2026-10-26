@@ -13,6 +13,14 @@ import {
 } from '/@/api/apiKey';
 import type { IApiKeyCreated, IApiKeySummary } from '/@/types/apiKey';
 import { copyText } from '/@/utils/clipboard';
+import {
+  MCP_RELEASE_PAGE,
+  SCRIPT_PATH_EXAMPLE,
+  buildInstallPrompt,
+  buildMcpConfig,
+  buildUpdatePrompt,
+  detectClientOs,
+} from '/@/features/mcp-setup/prompts';
 
 const isLoading = ref(false);
 const isCreating = ref(false);
@@ -34,97 +42,30 @@ const apiBase = computed(() => {
 
 const hasInstallToken = computed(() => Boolean(freshlyCreated.value?.api_key));
 
-/** 贴进 Cursor / Claude 等 Agent 的安装提示词 */
-function buildInstallPrompt(token: string): string {
-  return `请帮我在当前 AI 客户端中全局安装并启用 CV Builder MCP（用于读写我的在线简历）。
+const scriptPathExample = SCRIPT_PATH_EXAMPLE[
+  detectClientOs(typeof navigator === 'undefined' ? '' : navigator.userAgent)
+];
 
-【必须完成】
-1. 使用 npm 包 @waxilo/cv-mcp，通过 npx 启动（不要用本地仓库路径）。
-2. 写入全局 MCP 配置，服务器名称：cv-builder。
-3. 配置内容如下（可直接采用）：
+const installPrompt = computed(() =>
+  buildInstallPrompt(apiBase.value, freshlyCreated.value?.api_key || '')
+);
 
-{
-  "mcpServers": {
-    "cv-builder": {
-      "command": "npx",
-      "args": ["-y", "@waxilo/cv-mcp"],
-      "env": {
-        "CV_API_BASE": "${apiBase.value}",
-        "CV_API_TOKEN": "${token}"
-      }
-    }
-  }
-}
+/** 已装过 MCP 时，贴给 Agent 重新下载脚本并重启 */
+const updatePrompt = computed(() =>
+  buildUpdatePrompt(apiBase.value, freshlyCreated.value?.api_key)
+);
 
-4. 若客户端使用 mcp.json / Claude Desktop 的 claude_desktop_config.json / Cursor 的 MCP 设置，请写入对应文件并保存。
-5. 配置完成后提示我刷新或重启 MCP；可用工具 list_resumes 验证是否连通。
-6. 若账号还没有简历：用 create_resume 从零新建（迁移旧简历时可带上完整 data）；已有简历则默认先 duplicate_resume 再改副本，不要直接改原件。
-
-【注意】
-- CV_API_TOKEN 是我的私密密钥，不要提交到 git，不要发到公开场合。
-- 不要改成其他包名或本地 tsx 路径。
-- 只改 MCP 配置，不要改我的业务代码（除非我另行要求）。`;
-}
-
-const installPrompt = computed(() => buildInstallPrompt(freshlyCreated.value?.api_key || ''));
-
-/** 已装过 MCP 时，贴给 Agent 拉取最新包并重启 */
-const updatePrompt = computed(() => {
-  const tokenLine = freshlyCreated.value?.api_key
-    ? `- 若需轮换密钥，将 env.CV_API_TOKEN 更新为：${freshlyCreated.value.api_key}`
-    : '- 保留现有 env.CV_API_TOKEN（除非我另行提供新 Key）；不要删除或清空密钥。';
-
-  return `请帮我把当前 AI 客户端里已安装的 CV Builder MCP（cv-builder / @waxilo/cv-mcp）更新到最新版本。
-
-【必须完成】
-1. 确认全局 MCP 仍通过 npx 启动，推荐配置：
-
-{
-  "mcpServers": {
-    "cv-builder": {
-      "command": "npx",
-      "args": ["-y", "@waxilo/cv-mcp"],
-      "env": {
-        "CV_API_BASE": "${apiBase.value}",
-        "CV_API_TOKEN": "（保留我现有的密钥，不要改成占位符）"
-      }
-    }
-  }
-}
-
-2. 清理 npx 缓存并拉最新包（任选可用方式执行）：
-   - npx clear-npx-cache
-   - 或 npm cache clean --force
-3. 保存 MCP 配置后，提示我刷新 / 重启 MCP（Cursor：Settings → MCP 开关或 Reload）。
-4. 用 list_resumes 验证连通；若返回 RESUME_LOCKED，说明该简历已锁定，需我在网页解锁后再改原件，或先 duplicate_resume 再改副本。空账号可用 create_resume 从零新建（可带 data 迁移）。
-${tokenLine}
-
-【改简历约定】
-- 无简历时用 create_resume；已有简历默认先 duplicate_resume 再 update_* 副本，不要直接改正式原件（除非我明确要求）。
-- 不要改成其他包名或本地仓库 / tsx 路径。
-- 不要把 CV_API_TOKEN 提交到 git 或发到公开场合。
-- 只更新 MCP 相关配置与缓存，不要改我的业务代码（除非我另行要求）。`;
-});
-
-const mcpConfigJson = computed(() => {
-  const token = freshlyCreated.value?.api_key || 'cvk_先创建API_Key';
-  return JSON.stringify(
-    {
-      mcpServers: {
-        'cv-builder': {
-          command: 'npx',
-          args: ['-y', '@waxilo/cv-mcp'],
-          env: {
-            CV_API_BASE: apiBase.value,
-            CV_API_TOKEN: token,
-          },
-        },
-      },
-    },
+const mcpConfigJson = computed(() =>
+  JSON.stringify(
+    buildMcpConfig({
+      apiBase: apiBase.value,
+      token: freshlyCreated.value?.api_key || 'cvk_先创建API_Key',
+      scriptPath: scriptPathExample,
+    }),
     null,
     2
-  );
-});
+  )
+);
 
 async function loadKeys() {
   isLoading.value = true;
@@ -234,7 +175,7 @@ async function handleCopyKeyInstallPrompt(item: IApiKeySummary) {
       ElMessage.error(res.message || '获取 API Key 失败');
       return;
     }
-    await handleCopy(buildInstallPrompt(token), '安装提示词');
+    await handleCopy(buildInstallPrompt(apiBase.value, token), '安装提示词');
   } catch {
     // 错误提示由 request 拦截器处理
   } finally {
@@ -271,8 +212,10 @@ onMounted(() => {
     <section class="block">
       <h3>用 AI 改简历</h3>
       <p class="desc">
-        创建 API Key → 复制安装提示词给 Agent 装全局 MCP；已装过则复制更新提示词拉最新
-        <code>@waxilo/cv-mcp</code>。之后即可直接改简历。
+        创建 API Key → 复制安装提示词给 Agent，它会从
+        <a :href="MCP_RELEASE_PAGE" target="_blank" rel="noopener">GitHub Release</a>
+        下载单文件脚本 <code>cv-mcp.mjs</code> 并写好全局 MCP；已装过则复制更新提示词重新下载覆盖。需本机已装
+        Node.js 18+。
       </p>
     </section>
 
@@ -328,8 +271,8 @@ onMounted(() => {
         <h3>2. 一键复制安装提示词</h3>
       </div>
       <p class="desc">
-        复制后粘贴到 Cursor Agent / Claude 等对话里，让它帮你写入全局 MCP 配置并启用
-        <code>@waxilo/cv-mcp</code>。
+        复制后粘贴到 Cursor Agent / Claude 等对话里，让它下载 <code>cv-mcp.mjs</code> 到
+        <code>~/.cv-mcp/</code>，并写入全局 MCP 配置（<code>node &lt;脚本绝对路径&gt;</code>）。
       </p>
 
       <div class="prompt-actions">
@@ -353,7 +296,7 @@ onMounted(() => {
         <h3>3. 一键复制更新提示词</h3>
       </div>
       <p class="desc">
-        已装过 MCP、只需拉最新 <code>@waxilo/cv-mcp</code> 时用这个。不强制新建
+        已装过 MCP、要升级到最新版时用这个；旧的 <code>npx</code> 配置也会被改成脚本方式。不强制新建
         Key；若本页刚创建了密钥，提示词会附带轮换说明。
       </p>
 
@@ -361,7 +304,7 @@ onMounted(() => {
         <el-button type="primary" plain size="large" @click="handleCopyUpdatePrompt">
           一键复制更新提示词
         </el-button>
-        <span class="hint ok">清缓存 → 拉最新包 → 重启 MCP</span>
+        <span class="hint ok">重新下载脚本 → 校正配置 → 重启 MCP</span>
       </div>
 
       <pre class="config prompt">{{ updatePrompt }}</pre>
@@ -379,7 +322,12 @@ onMounted(() => {
           复制 JSON
         </el-button>
       </div>
-      <p class="desc">若你更想自己改配置文件，可复制这段到 Cursor Settings → MCP。</p>
+      <p class="desc">
+        若你更想自己配置：先从
+        <a :href="MCP_RELEASE_PAGE" target="_blank" rel="noopener">GitHub Release</a>
+        下载 <code>cv-mcp.mjs</code>，再把这段复制到 Cursor Settings → MCP，并把
+        <code>args</code> 改成脚本在你电脑上的绝对路径。
+      </p>
       <pre class="config">{{ mcpConfigJson }}</pre>
     </section>
 
@@ -392,7 +340,7 @@ onMounted(() => {
         <li>新用户 / 空账号：让 Agent <code>create_resume</code>（可带旧简历 data 迁移）</li>
         <li>已有简历：让 Agent「先复制再改副本」，避免直接改原件</li>
         <li>回到「我的简历」刷新即可看到 AI 的修改</li>
-        <li>包有更新时：复制「更新提示词」贴给 Agent，清缓存并重启 MCP</li>
+        <li>MCP 有新版本时：复制「更新提示词」贴给 Agent，重新下载脚本并重启 MCP</li>
       </ol>
     </section>
   </div>

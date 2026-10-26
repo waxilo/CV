@@ -1,6 +1,8 @@
-# @waxilo/cv-mcp
+# CV Builder MCP（cv-mcp.mjs）
 
 CV Builder 的 MCP Server：在 Cursor / Claude Desktop 里用工具读写简历 JSON，并可调整简历的模板（HTML/CSS/变量/页边距）。
+
+以**单文件脚本** `cv-mcp.mjs` 发布在 [GitHub Release](https://github.com/waxilo/CV/releases/latest)，依赖已全部打包，本机只需 **Node.js 18+**。npm 包 `@waxilo/cv-mcp` 已停止更新。
 
 ## 环境变量
 
@@ -14,28 +16,36 @@ CV Builder 的 MCP Server：在 Cursor / Claude Desktop 里用工具读写简历
 1. 打开 [CV Builder → MCP 接入](https://cv.sloan.dpdns.org/mcp)
 2. 创建 API Key
 3. **一键复制安装提示词**，粘贴到 Cursor / Claude 等 Agent
-4. Agent 会写入全局 MCP（`npx -y @waxilo/cv-mcp`）
-5. 已安装、只需升级时：同一页 **一键复制更新提示词**（清 npx 缓存 → 拉最新包 → 重启 MCP）
+4. Agent 会把 `cv-mcp.mjs` 下载到 `~/.cv-mcp/`，并写入全局 MCP（`node <脚本绝对路径>`）
+5. 已安装、只需升级时：同一页 **一键复制更新提示词**（重新下载覆盖 → 校正配置 → 重启 MCP）
 
-## 更新 MCP
+## 手动安装 / 更新
 
-配置仍是 `npx -y @waxilo/cv-mcp` 时，优先用网页上的**更新提示词**；或手动：
+下载（更新时重新执行一次即覆盖旧版）：
 
 ```bash
-npx clear-npx-cache
-# 然后在 Cursor Settings → MCP 重启 cv-builder
+# macOS / Linux
+mkdir -p ~/.cv-mcp && curl -fL -o ~/.cv-mcp/cv-mcp.mjs https://github.com/waxilo/CV/releases/latest/download/cv-mcp.mjs
 ```
 
-密钥未吊销则无需重建。改简历请默认 `duplicate_resume` 后再 `update_*`。锁定原件的直接改写会被 API 拒绝（`RESUME_LOCKED`），可先复制再改副本。
+```powershell
+# Windows PowerShell
+New-Item -ItemType Directory -Force "$HOME\.cv-mcp" | Out-Null
+Invoke-WebRequest -Uri https://github.com/waxilo/CV/releases/latest/download/cv-mcp.mjs -OutFile "$HOME\.cv-mcp\cv-mcp.mjs"
+```
 
-手动配置示例：
+每个 Release 附带 `cv-mcp.mjs.sha256`，可自行校验。下载后在 Cursor Settings → MCP 重启 `cv-builder`。
+
+旧配置仍是 `npx -y @waxilo/cv-mcp` 的，用网页上的**更新提示词**即可让 Agent 改成下面的脚本方式。密钥未吊销则无需重建。改简历请默认 `duplicate_resume` 后再 `update_*`。锁定原件的直接改写会被 API 拒绝（`RESUME_LOCKED`），可先复制再改副本。
+
+配置示例（`args` 填脚本绝对路径，Windows 写成 `C:\\Users\\你\\.cv-mcp\\cv-mcp.mjs`）：
 
 ```json
 {
   "mcpServers": {
     "cv-builder": {
-      "command": "npx",
-      "args": ["-y", "@waxilo/cv-mcp"],
+      "command": "node",
+      "args": ["/Users/你的用户名/.cv-mcp/cv-mcp.mjs"],
       "env": {
         "CV_API_BASE": "http://127.0.0.1:7004",
         "CV_API_TOKEN": "cvk_你的API_Key"
@@ -81,6 +91,17 @@ npx clear-npx-cache
 ```bash
 cd mcp
 npm install
-npm run build
-npm run dev
+npm run dev        # tsx 直跑源码
+npm run build      # esbuild 打包为 dist/cv-mcp.mjs（版本号取自 package.json）
 ```
+
+## 发版（维护者）
+
+1. 改 `mcp/package.json` 的 `version`，提交并推到 `main`
+2. 打 tag 并推送，tag 必须是 `mcp-v<version>`，与 package.json 一致：
+   ```bash
+   git tag mcp-v0.2.0 && git push origin mcp-v0.2.0
+   ```
+3. `.github/workflows/mcp-release.yml` 会校验版本 → typecheck → 构建 → 冒烟测试 → 发布 Release（标记为 latest，附 `cv-mcp.mjs` 与 `.sha256`）
+
+用户侧下载地址固定为 `releases/latest/download/cv-mcp.mjs`，发版后无需改网页。

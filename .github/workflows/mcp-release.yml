@@ -1,0 +1,69 @@
+# 推送 mcp-v<版本> tag 时构建单文件 MCP 并发布到 GitHub Release。
+# 用户侧固定从 releases/latest/download/cv-mcp.mjs 下载，所以这里发的 Release 会标记为 latest。
+name: MCP Release
+
+on:
+  push:
+    tags:
+      - 'mcp-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mcp/package-lock.json
+
+      - name: 校验 tag 与 package.json 版本一致
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#mcp-v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} 与 mcp/package.json 版本 ${PKG_VERSION} 不一致"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+      - name: 冒烟测试（无 node_modules 目录下握手并列出工具）
+        run: |
+          SMOKE_DIR="$(mktemp -d)"
+          cp dist/cv-mcp.mjs "$SMOKE_DIR/"
+          cd "$SMOKE_DIR"
+          printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            | CV_API_TOKEN=cvk_ci timeout 20 node cv-mcp.mjs > out.txt
+          node -e "
+            const lines = require('fs').readFileSync('out.txt', 'utf8').trim().split('\n').map(JSON.parse);
+            const tools = lines.find((l) => l.id === 2).result.tools;
+            if (!tools.length) throw new Error('tools/list 为空');
+            console.log('tools:', tools.map((t) => t.name).join(','));
+          "
+
+      - name: 生成校验和
+        run: cd dist && sha256sum cv-mcp.mjs > cv-mcp.mjs.sha256
+
+      - name: 发布 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/cv-mcp.mjs dist/cv-mcp.mjs.sha256 \
+            --title "CV Builder MCP ${GITHUB_REF_NAME#mcp-}" \
+            --notes "下载 \`cv-mcp.mjs\` 后用 \`node <绝对路径>/cv-mcp.mjs\` 启动（需 Node 18+）。安装 / 更新提示词见网页「MCP 接入」页。" \
+            --latest
